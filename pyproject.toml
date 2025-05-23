@@ -1,0 +1,17 @@
+[project]
+name = "ridges-v2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncio>=3.4.3",
+    "dotenv>=0.9.9",
+    "fiber[full]",
+    "httpx>=0.27.0",
+    "loguru>=0.7.3",
+    "setuptools>=80.8.0",
+]
+
+[tool.uv.sources]
+fiber = { git = "https://github.com/rayonlabs/fiber.git" }
