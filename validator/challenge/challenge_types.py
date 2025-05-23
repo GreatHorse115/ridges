@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Dict, Any
 from pathlib import Path
 from textwrap import dedent
 from datetime import datetime
@@ -43,9 +43,16 @@ class FilePair:
 
 
 @dataclass
-class GeneratedCodegenProblem: 
+class GeneratedCodegenProblem:
     problem_statement: str
     dynamic_checklist: List[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert challenge to dictionary for sending to miners"""
+        return {
+            "problem_statement": self.problem_statement,
+            "dynamic_checklist": self.dynamic_checklist
+        }
 
 @dataclass
 class HyrdatedGeneratedCodegenProblem:

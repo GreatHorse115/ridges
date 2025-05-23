@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=2.2.6",
     "openai>=1.82.0",
     "setuptools>=80.8.0",
+    "sqlalchemy>=2.0.41",
     "tiktoken>=0.9.0",
 ]
 

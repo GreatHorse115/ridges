@@ -234,6 +234,17 @@ def get_all_filepairs(
 
     return valid_pairs
 
+def dehydrate_codegen_problem(
+    hydrated_codegen_problem: HyrdatedGeneratedCodegenProblem
+) -> GeneratedCodegenProblem:
+    '''
+    Helper function used to strip context files from codegen problem before sending to miners
+    '''
+    return GeneratedCodegenProblem(
+       problem_statement=hydrated_codegen_problem.problem_statement,
+       dynamic_checklist=hydrated_codegen_problem.dynamic_checklist
+    )
+
 async def create_next_codegen_challenge(
     openai_client: openai.Client
 ) -> HyrdatedGeneratedCodegenProblem:
