@@ -80,3 +80,12 @@ class ChallengeTask:
         self.timestamp = timestamp
         self.challenge = challenge
         self.miner_hotkey = miner_hotkey
+
+# Get the absolute path to repos dir
+validator_dir = Path(__file__).parents[1]
+repos_dir = validator_dir / "repos"
+
+SUPPORTED_CODEGEN_REPOS: Dict[str, Path] = {
+    "mwaskom/seaborn": repos_dir / "seaborn",
+    "pytest-dev/pytest":  repos_dir / "pytest",
+}

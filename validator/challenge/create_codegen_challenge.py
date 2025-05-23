@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from dataclasses import asdict
 import uuid
+import subprocess
 
 import tiktoken
 import openai
@@ -18,7 +19,7 @@ from jinja2 import Template
 import numpy as np
 from fiber.logging_utils import get_logger
 
-from validator.challenge.challenge_types import HyrdatedGeneratedCodegenProblem, GeneratedCodegenProblem, EmbeddedFile, FilePair
+from validator.challenge.challenge_types import HyrdatedGeneratedCodegenProblem, GeneratedCodegenProblem, EmbeddedFile, FilePair, SUPPORTED_CODEGEN_REPOS
 from validator.config import (
     OPENAI_API_KEY, PREFERRED_OPENAI_MODEL,
     MIN_FILE_CONTENT_LEN_CHARS, MIN_FILES_IN_DIR_TO_GENERATE_PROBLEM
@@ -245,6 +246,44 @@ def dehydrate_codegen_problem(
        dynamic_checklist=hydrated_codegen_problem.dynamic_checklist
     )
 
+def setup_repositories_and_select_random() -> Path:
+    """
+    Clones supported repositories if they don't exist 
+    into the appropriate directory, and selects one for 
+    a problem to be generated from
+    """
+
+    # Get the repos directory path
+    repos_dir = Path(__file__).parent.parent / "repos"
+    repos_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Clone each supported repo if it doesn't exist
+    for repo_name, repo_path in SUPPORTED_CODEGEN_REPOS.items():
+        if not repo_path.exists():
+            logger.info(f"Cloning repository {repo_name} to {repo_path}")
+            try:
+                # Construct GitHub URL
+                github_url = f"https://github.com/{repo_name}.git"
+                
+                # Clone the repository
+                subprocess.run(
+                    ["git", "clone", github_url, str(repo_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                logger.info(f"Successfully cloned {repo_name}")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to clone {repo_name}: {e.stderr}")
+                raise
+
+    # Select a random repository from the supported repos
+    repo_name = random.choice(list(SUPPORTED_CODEGEN_REPOS.keys()))
+    repo_path = SUPPORTED_CODEGEN_REPOS[repo_name]
+    logger.info(f"Selected repository {repo_name} at {repo_path}")
+
+    return repo_path
+
 async def create_next_codegen_challenge(
     openai_client: openai.Client
 ) -> HyrdatedGeneratedCodegenProblem:
@@ -262,7 +301,7 @@ async def create_next_codegen_challenge(
     '''
 
     # Select a supported repo at random
-    repo_path: Path = None
+    repo_path: Path = setup_repositories_and_select_random()
 
     file_pairs = get_all_filepairs(local_repo_path=repo_path, openai_client=openai_client)
     selected_pair = random.choice(file_pairs)
