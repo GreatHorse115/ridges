@@ -191,6 +191,22 @@ async def main():
             lambda t: logger.error(f"Evaluation task ended unexpectedly: {t.exception()}")
             if t.exception() else None
         )
+
+        # Start weights update loop as a separate task
+        logger.info("Starting weights update task...")
+        weights_task = asyncio.create_task(weights_update_loop(db_manager))
+        weights_task.add_done_callback(
+            lambda t: logger.error(f"Weights task ended unexpectedly: {t.exception()}")
+            if t.exception() else None
+        )
+    
+        # Start the periodic cleanup task
+        logger.info("Starting cleanup task...")
+        cleanup_task = asyncio.create_task(periodic_cleanup(db_manager))
+        cleanup_task.add_done_callback(
+            lambda t: logger.error(f"Cleanup task ended unexpectedly: {t.exception()}")
+            if t.exception() else None
+        )
     # Task 1: Eval loop on active challenges?
         # Track active challenges and creates an eval loop
     # Task 2: Update weights loop
