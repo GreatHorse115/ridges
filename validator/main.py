@@ -19,7 +19,7 @@ import os
 
 # Internal package imports
 from validator.db.operations import DatabaseManager
-from validator.challenge.challenge_types import File, FilePair, EmbeddedFile, GeneratedProblemStatement, ChallengeTask
+from validator.challenge.challenge_types import File, FilePair, EmbeddedFile, HyrdatedGeneratedCodegenProblem, ChallengeTask
 from validator.config import (
     NETUID, SUBTENSOR_NETWORK, SUBTENSOR_ADDRESS,
     WALLET_NAME, HOTKEY_NAME,

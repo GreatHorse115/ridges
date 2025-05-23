@@ -23,6 +23,10 @@ MAX_MINERS = 25
 CHALLENGE_INTERVAL = timedelta(minutes=1)
 CHALLENGE_TIMEOUT = timedelta(minutes=4)
 
+# Codegen task configuration
+MIN_FILES_IN_DIR_TO_GENERATE_PROBLEM = 3
+MIN_FILE_CONTENT_LEN_CHARS = 50
+
 WEIGHTS_INTERVAL = timedelta(minutes=30)
 VALIDATION_DELAY = timedelta(minutes=5)
 
@@ -32,6 +36,7 @@ VERSION_KEY = 2
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PREFERRED_OPENAI_MODEL = "gpt4o"
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")

@@ -15,15 +15,6 @@ class IngestionHeuristics:
     min_file_content_len: int
 
 '''
-Used to log how much a validator or miner is spending while running
-'''
-@dataclass
-class ModelStats:
-    input_tokens: int
-    output_tokens: int
-    cost: float
-
-'''
 Helper class to handle and later embed a file for which we will ask a problem statement
 '''
 @dataclass
@@ -52,14 +43,18 @@ class FilePair:
 
 
 @dataclass
-class GeneratedProblemStatement:
+class GeneratedCodegenProblem: 
+    problem_statement: str
+    dynamic_checklist: List[str]
+
+@dataclass
+class HyrdatedGeneratedCodegenProblem:
     problem_uuid: str
     prompt: str
     model: str
     problem_statement: str
     dynamic_checklist: List[str]
     context_files: List[str]
-    model_stats: Optional[ModelStats] = None
 
     def to_detailed_format(self) -> str:
         context_files_string = ""
@@ -72,7 +67,7 @@ class GeneratedProblemStatement:
         """)
 
 class ChallengeTask:
-    def __init__(self, node_id: int, task: asyncio.Task, timestamp: datetime, challenge: GeneratedProblemStatement, miner_hotkey: str):
+    def __init__(self, node_id: int, task: asyncio.Task, timestamp: datetime, challenge: HyrdatedGeneratedCodegenProblem, miner_hotkey: str):
         self.node_id = node_id
         self.task = task
         self.timestamp = timestamp
