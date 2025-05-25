@@ -4,30 +4,36 @@ from pathlib import Path
 import sys 
 import time
 from typing import Optional
+import random
+import os
+import asyncio
+from datetime import datetime, timezone
 
 # External package imports
 from fiber.validator import client as validator
 from fiber.chain.interface import get_substrate
 from fiber.chain.models import Node
 from fiber.chain.chain_utils import load_hotkey_keypair
+from fiber.chain import fetch_nodes
 from loguru import logger
 from dotenv import load_dotenv
 import httpx
-import asyncio
-import random
-import os
+from openai import OpenAI
 
 # Internal package imports
 from validator.db.operations import DatabaseManager
-from validator.challenge.challenge_types import File, FilePair, EmbeddedFile, HyrdatedGeneratedCodegenProblem, ChallengeTask
+from validator.challenge.challenge_types import File, FilePair, EmbeddedFile, HyrdatedGeneratedCodegenProblem, ChallengeTask, GeneratedCodegenProblem
+from validator.challenge.create_codegen_challenge import create_next_codegen_challenge, dehydrate_codegen_problem
+from validator.challenge.send_codegen_challenge import send_challenge
 from validator.config import (
     NETUID, SUBTENSOR_NETWORK, SUBTENSOR_ADDRESS,
-    WALLET_NAME, HOTKEY_NAME,
+    WALLET_NAME, HOTKEY_NAME, CHALLENGE_INTERVAL,
     CHALLENGE_TIMEOUT, DB_PATH,
-    MAX_MINERS
+    MAX_MINERS, MIN_MINERS
 )
 from validator.evaluation.evaluation import CodeGenValidator
 from validator.evaluation.evaluation_loop import run_evaluation_loop
+from validator.utils.async_utils import AsyncBarrier
 
 project_root = str(Path(__file__).resolve().parents[2])
 sys.path.append(project_root)
@@ -93,13 +99,37 @@ async def check_miner_availability(
         logger.warning(f"Failed to check availability for node {node.node_id}: {str(e)}")
         return False
 
-async def get_available_nodes(
+def get_active_nodes_on_chain() -> list[Node]:
+    """This gets the miners registered as active on chain"""
+    try:
+        # Get nodes from chain
+        substrate = get_substrate(
+            subtensor_network=SUBTENSOR_NETWORK,
+            subtensor_address=SUBTENSOR_ADDRESS
+        )
+        
+        active_nodes = fetch_nodes.get_nodes_for_netuid(substrate, NETUID)
+        logger.info(f"Found {len(active_nodes)} total nodes on chain")
+        
+        # Log details about active nodes
+        logger.info(f"Found {len(active_nodes)} nodes on chain")
+        for node in active_nodes:
+            logger.info(f"Active node id: {node.node_id} hotkey: {node.hotkey}, ip: {node.ip}, port: {node.port}, last_updated: {node.last_updated}")
+        
+        # Return all active nodes without MAX_MINERS filtering
+        return active_nodes
+        
+    except Exception as e:
+        logger.error(f"Failed to get active nodes: {str(e)}")
+        return []
+    
+async def get_available_nodes_with_api(
     nodes: list[Node],
     client: httpx.AsyncClient,
     db_manager: DatabaseManager,
     hotkey: str
 ) -> list[Node]:
-    """Check availability of all nodes and return available ones up to MAX_MINERS."""
+    """Check availability of all nodes using their APIs and return available ones up to MAX_MINERS."""
     
     logger.info(f"Checking availability for all {len(nodes)} nodes")
     availability_tasks = [
@@ -141,9 +171,6 @@ async def weights_update_loop(db_manager: DatabaseManager) -> None:
 async def periodic_cleanup(db_manager: DatabaseManager, interval_hours: int = 24):
     pass 
 
-async def get_next_challenge_with_retry(hotkey: str, max_retries: int = 2, initial_delay: float = 5.0) -> Optional[dict]:
-    pass 
-
 async def main():
     """Main validator loop."""
     
@@ -152,6 +179,8 @@ async def main():
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY environment variable not set")
     
+    openai_client = OpenAI(OPENAI_API_KEY)
+
     # Load validator hotkey
     try:
         hotkey = load_hotkey_keypair(WALLET_NAME, HOTKEY_NAME)
@@ -164,7 +193,7 @@ async def main():
     db_manager = DatabaseManager(DB_PATH)
 
     # Initialize validator instances
-    validator = CodeGenValidator(openai_api_key=OPENAI_API_KEY, validator_hotkey=hotkey.ss58_address)
+    validator = CodeGenValidator(openai_client, validator_hotkey=hotkey.ss58_address)
     
     # Creates a susbtrate instance
     substrate = get_substrate(
@@ -207,12 +236,160 @@ async def main():
             lambda t: logger.error(f"Cleanup task ended unexpectedly: {t.exception()}")
             if t.exception() else None
         )
-    # Task 1: Eval loop on active challenges?
-        # Track active challenges and creates an eval loop
-    # Task 2: Update weights loop
-    # Task 3: Periodic cleanup task 
 
-    # runs the main iteration loop within async client
+        # runs the main iteration loop within async client
+        try: 
+            # Main challenge loop
+            iteration = 0 
+            while True: 
+                try:
+                    iteration += 1
+
+                    logger.info(f"Main loop iteration {iteration}")
+
+                    # Check if any background tasks failed
+                    for task in [evaluation_task, weights_task, cleanup_task]:
+                        if task.done() and not task.cancelled():
+                            exc = task.exception()
+                            if exc:
+                                logger.error(f"Background task failed: {exc}")
+                                # Restart the failed task
+                                if task == evaluation_task:
+                                    logger.info("Restarting evaluation loop...")
+                                    evaluation_task = asyncio.create_task(
+                                        run_evaluation_loop(
+                                            db_path=DB_PATH,
+                                            openai_api_key=OPENAI_API_KEY,
+                                            validator_hotkey=hotkey.ss58_address,
+                                            batch_size=10,
+                                            sleep_interval=10
+                                        )
+                                    )
+                                elif task == weights_task:
+                                    logger.info("Restarting weights update loop...")
+                                    weights_task = asyncio.create_task(weights_update_loop(db_manager))
+                                elif task == cleanup_task:
+                                    logger.info("Restarting cleanup task...")
+                                    cleanup_task = asyncio.create_task(periodic_cleanup(db_manager))
+                    
+                    # Clean up completed challenge tasks
+                    active_challenge_tasks = [
+                        task for task in active_challenge_tasks 
+                        if not task.task.done()
+                    ]
+                    
+                    # Get active nodes and make sure we have enough to continue the loop
+                    active_nodes = get_active_nodes_on_chain()
+                    num_active = len(active_nodes)
+
+                    if num_active < MIN_MINERS:
+                        logger.warning(f"Only {num_active} active nodes available (minimum {MIN_MINERS} required)")
+                        logger.info(f"Will check again in {CHALLENGE_INTERVAL.total_seconds()} seconds...")
+                        await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
+                        continue
+                
+                    # Check availability of nodes
+                    available_nodes = await get_available_nodes_with_api(active_nodes, client, db_manager, hotkey.ss58_address)
+                    num_available = len(available_nodes)
+                    
+                    if num_available < MIN_MINERS:
+                        logger.warning(f"Only {num_available} nodes are available (minimum {MIN_MINERS} required)")
+                        logger.info(f"Sleeping for {CHALLENGE_INTERVAL.total_seconds()} seconds before next availability check...")
+                        await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
+                        continue
+
+                    logger.info(f"Processing {num_available} available nodes")
+
+                    # Generate and send challenges
+                    new_challenge_tasks = []
+                    barrier = AsyncBarrier(parties=len(available_nodes))
+
+                    
+                    # Fetch next challenge from API with retries
+                    challenge_data = await create_next_codegen_challenge(openai_client)
+
+                    if not challenge_data:
+                        logger.info(f"Sleeping for {CHALLENGE_INTERVAL.total_seconds()} seconds before next challenge check...")
+                        await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
+                        continue
+
+                    logger.info(f"Processing challenge: task_id={challenge_data['task_id']}")
+
+                    # Log background task status
+                    logger.info("Background task status:")
+                    logger.info(f"  - Evaluation task running: {not evaluation_task.done()}")
+                    logger.info(f"  - Weights task running: {not weights_task.done()}")
+                    logger.info(f"  - Cleanup task running: {not cleanup_task.done()}")
+
+                    for node in available_nodes:
+                        # Create challenge
+                        challenge = GeneratedCodegenProblem(
+                            problem_statement=challenge.problem_statement,
+                            dynamic_checklist=challenge.dynamic_checklist
+                        )
+                        
+                        task = asyncio.create_task(
+                            send_challenge(
+                                challenge=challenge,
+                                server_address=construct_server_address(node),
+                                hotkey=node.hotkey,
+                                keypair=hotkey,
+                                node_id=node.node_id,
+                                barrier=barrier,
+                                db_manager=db_manager,
+                                client=client
+                            )
+                        )
+                        
+                        challenge_task = ChallengeTask(
+                            node_id=node.node_id,
+                            task=task,
+                            timestamp=datetime.now(timezone.utc),
+                            challenge=challenge,
+                            miner_hotkey=node.hotkey
+                        )
+                        new_challenge_tasks.append(challenge_task)
+                    
+                    # Add new challenges to active tasks
+                    active_challenge_tasks.extend(new_challenge_tasks)
+
+                    # process any completed challenges
+                    await process_challenge_results(
+                        new_challenge_tasks,
+                        db_manager,
+                        validator,
+                        hotkey,
+                        substrate
+                    )
+
+                    # Log status
+                    num_active_challenges = len(active_challenge_tasks)
+                    if num_active_challenges > 0:
+                        logger.info(f"Currently tracking {num_active_challenges} active challenges")
+
+                    # Sleep until next challenge interval
+                    await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
+                except KeyboardInterrupt:
+                    break
+                except Exception as e: 
+                    logger.error(f"Error in main loop: {str(e)}")
+                    await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
+        finally: 
+            # Cancel evaluation and weights loops
+            evaluation_task.cancel()
+            weights_task.cancel()
+            cleanup_task.cancel()
+            try:
+                await asyncio.gather(evaluation_task, weights_task, cleanup_task, return_exceptions=True)
+            except asyncio.CancelledError:
+                pass
+        
+        # Cleanup
+        if db_manager:
+            db_manager.close()
+
+
+
         # Checks if background tasks (eval, weights, cleanup) failed 
         # Removes completed challenges from the active_challenge_tasks list
 
@@ -228,10 +405,11 @@ async def main():
 
         # it then processes and grades any completed challenges
 
-        # Theres some helpers like breaking out of this into the finally on keyboardinterrupt, and logging errors + restarting loop
-
-        # Finally statement cancels eval, weights, cleanup tasks, runs them all and then closes
     
-    # After finihsingt he main loop theres also a db manager cleanup 
 
 # Lastly the if name runs it all and then exists out on keyboard interrupt
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        sys.exit(0)

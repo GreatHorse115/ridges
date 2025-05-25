@@ -300,7 +300,7 @@ async def create_next_codegen_challenge(
     This is then returned to miners that specialize in codegen
 
     Args:
-        validator_hotkey (str): The validator's hotkey.
+        openai_client: The validator's OpenAI client with which to generate the question
 
     Returns:
         GeneratedProblemStatement or None if error
