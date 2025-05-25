@@ -193,7 +193,13 @@ def load_filepairs_from_cache(cache_path: str) -> List[FilePair]:
         return [
             FilePair(
                 cosine_similarity=pair['cosine_similarity'],
-                files=[EmbeddedFile(**f) for f in pair['files']]
+                files=[
+                    EmbeddedFile(
+                        path=f['path'],
+                        contents=f['contents'],
+                        embedding=f['embedding']
+                    ) for f in pair['files']
+                ]
             )
             for pair in data
         ]
@@ -324,7 +330,7 @@ async def create_next_codegen_challenge(
     problem_id = str(uuid.uuid4())
 
     return HyrdatedGeneratedCodegenProblem(
-        problem_uuid=problem_id,
+        challenge_id=problem_id,
         prompt=prompt_with_filepair_context,
         model=PREFERRED_OPENAI_MODEL,
         problem_statement=generated_problem.problem_statement,

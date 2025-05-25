@@ -56,9 +56,9 @@ async def construct_server_address(node: Node) -> str:
 async def check_miner_availability(
     node: Node, 
     client: httpx.AsyncClient, 
-    db_manager: None, 
+    db_manager: DatabaseManager, 
     hotkey: str
-) -> None: 
+) -> bool: 
     """Check if a miner is available and log the result."""
     server_address = construct_server_address(node)
     start_time = time.time()

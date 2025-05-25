@@ -10,14 +10,14 @@ def get_schema_v1() -> List[str]:
         # Codegen challenges table
         """
         CREATE TABLE IF NOT EXISTS codegen_challenges (
-            question_id TEXT PRIMARY KEY,  -- UUID for the challenge
+            challenge_id TEXT PRIMARY KEY,  -- UUID for the challenge
             created_at TIMESTAMP NOT NULL,
             question_text TEXT NOT NULL,
-            validator_hotkey TEXT NOT NULL,
             relevant_filepair_1_name TEXT NOT NULL,
             relevant_filepair_2_name TEXT NOT NULL,
             relevant_filepair_1_content TEXT NOT NULL,
             relevant_filepair_2_content TEXT NOT NULL,
+            dynamic_checklist TEXT NOT NULL,  -- Stored as JSON array
         )
         """,
 
@@ -25,16 +25,15 @@ def get_schema_v1() -> List[str]:
         """
         CREATE TABLE IF NOT EXISTS challenge_assignments (
             assignment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question_id TEXT NOT NULL,  -- UUID for the problem
+            challenge_id TEXT NOT NULL,  -- UUID for the problem
             miner_hotkey TEXT NOT NULL,
-            validator_hotkey TEXT NOT NULL,
             node_id INTEGER NOT NULL,
             assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             sent_at TIMESTAMP,
             completed_at TIMESTAMP,
             status TEXT CHECK(status IN ('assigned', 'sent', 'completed', 'failed')) DEFAULT 'assigned',
-            FOREIGN KEY (question_id) REFERENCES codegen_challenges(question_id),
-            UNIQUE(question_id, miner_hotkey)
+            FOREIGN KEY (challenge_id) REFERENCES codegen_challenges(challenge_id),
+            UNIQUE(challenge_id, miner_hotkey)
         )
         """,
 
@@ -42,7 +41,7 @@ def get_schema_v1() -> List[str]:
         """
         CREATE TABLE IF NOT EXISTS responses (
             response_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question_id TEXT NOT NULL,  -- UUID for the problem
+            challenge_id TEXT NOT NULL,  -- UUID for the problem
             miner_hotkey TEXT NOT NULL,
             node_id INTEGER,
             processing_time FLOAT,
@@ -51,9 +50,9 @@ def get_schema_v1() -> List[str]:
             evaluated BOOLEAN DEFAULT FALSE,
             score FLOAT,
             evaluated_at TIMESTAMP,
-            response_data JSON,
-            FOREIGN KEY (question_id) REFERENCES codegen_challenges(question_id),
-            FOREIGN KEY (question_id, miner_hotkey) REFERENCES challenge_assignments(question_id, miner_hotkey)
+            response_patch TEXT,
+            FOREIGN KEY (challenge_id) REFERENCES codegen_challenges(challenge_id),
+            FOREIGN KEY (challenge_id, miner_hotkey) REFERENCES challenge_assignments(challenge_id, miner_hotkey)
         )
         """,
 
@@ -100,3 +99,20 @@ def check_db_initialized(db_path: str) -> bool:
     finally:
         if 'conn' in locals():
             conn.close()
+
+def init_db(db_path: str) -> sqlite3.Connection:
+    """Initialize the database with all tables if it doesn't exist."""
+    # Create directory if it doesn't exist
+    db_dir = Path(db_path).parent
+    db_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create and initialize database if needed
+    if not check_db_initialized(db_path):
+        conn = sqlite3.connect(db_path)
+        for query in get_schema_v1():
+            conn.execute(query)
+        conn.commit()
+        return conn
+    
+    # If database exists and is initialized, just return connection
+    return sqlite3.connect(db_path)

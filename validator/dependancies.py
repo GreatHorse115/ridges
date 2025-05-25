@@ -4,6 +4,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from validator.config import DB_PATH
+from typing import Generator
 
 @lru_cache()
 def get_database_engine():
@@ -21,7 +22,7 @@ def get_session_factory():
     engine = get_database_engine()
     return sessionmaker(bind=engine)
 
-def get_db_session() -> Session:
+def get_db_session() -> Generator[Session, None, None]:
     """Get a new database session."""
     SessionFactory = get_session_factory()
     session = SessionFactory()

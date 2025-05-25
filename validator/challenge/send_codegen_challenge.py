@@ -2,6 +2,7 @@
 Ridges has multiple challenge types. The first is one shot code gen.
 We are currently built on Rayon Labs' Fiber + use our synthetic code generation system to send tasks to miners
 '''
+from typing import Optional
 
 import httpx
 from fiber import Keypair
@@ -22,8 +23,8 @@ async def send_challenge(
     keypair: Keypair,
     node_id: int,
     barrier: AsyncBarrier,
-    db_manager: DatabaseManager = None,
-    client: httpx.AsyncClient = None,
+    db_manager: Optional[DatabaseManager] = None,
+    client: Optional[httpx.AsyncClient] = None,
     timeout: float = CHALLENGE_TIMEOUT.total_seconds()  # Use config timeout in seconds
 ) -> httpx.Response:
     """Send a challenge to a miner node using fiber 2.0.0 protocol."""
@@ -32,7 +33,7 @@ async def send_challenge(
     logger.info(f"Preparing to send challenge to node {node_id}")
     logger.info(f"  Server address: {server_address}")
     logger.info(f"  Hotkey: {hotkey}")
-    logger.info(f"  Challenge ID: {challenge.problem_uuid}")
+    logger.info(f"  Challenge ID: {challenge.challenge_id}")
 
     remaining_barriers = 2
     response = None 
@@ -40,12 +41,9 @@ async def send_challenge(
     try:
         # First, store the challenge in the challenges table
         if db_manager:
-            logger.debug(f"Storing challenge {challenge.problem_uuid} in database")
-            db_manager.store_challenge(
-                challenge_id=challenge.problem_uuid,
-                challenge_type=str(challenge.type),  # Convert enum to string
-                video_url=challenge.video_url,
-                task_name="soccer"
+            logger.debug(f"Storing challenge {challenge.challenge_id} in database")
+            db_manager.store_codegen_challenge(
+                challenge=challenge
             )
         
          # Record the assignment
@@ -80,7 +78,7 @@ async def send_challenge(
         if remaining_barriers: 
             await barrier.wait()
             remaining_barriers -= 1
-        error_msg = f"Failed to send challenge {challenge.problem_uuid} to {hotkey} (node {node_id}): {str(e)}"
+        error_msg = f"Failed to send challenge {challenge.challenge_id} to {hotkey} (node {node_id}): {str(e)}"
         logger.error(error_msg)
         logger.error("Full error traceback:", exc_info=True)
         raise ValueError(error_msg)
