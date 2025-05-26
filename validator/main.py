@@ -14,7 +14,7 @@ from fiber.validator import client as validator
 from fiber.chain.interface import get_substrate
 from fiber.chain.models import Node
 from fiber.chain.chain_utils import load_hotkey_keypair
-from fiber.chain import fetch_nodes
+from fiber.chain.fetch_nodes import get_nodes_for_netuid
 from loguru import logger
 from dotenv import load_dotenv
 import httpx
@@ -42,10 +42,6 @@ sys.path.append(project_root)
 validator_dir = Path(__file__).parent
 env_path = validator_dir / ".env"
 load_dotenv(env_path)
-
-async def process_challenge_results():
-    """Process challenge results without blocking."""
-    pass
 
 async def construct_server_address(node: Node) -> str:
     """Construct server address for a node.
@@ -108,7 +104,7 @@ def get_active_nodes_on_chain() -> list[Node]:
             subtensor_address=SUBTENSOR_ADDRESS
         )
         
-        active_nodes = fetch_nodes.get_nodes_for_netuid(substrate, NETUID)
+        active_nodes = get_nodes_for_netuid(substrate, NETUID)
         logger.info(f"Found {len(active_nodes)} total nodes on chain")
         
         # Log details about active nodes
@@ -165,9 +161,6 @@ async def get_available_nodes_with_api(
 async def weights_update_loop(db_manager: DatabaseManager) -> None:
     pass
 
-async def weights_update_loop(db_manager: DatabaseManager) -> None:
-    pass
-
 async def periodic_cleanup(db_manager: DatabaseManager, interval_hours: int = 24):
     pass 
 
@@ -179,7 +172,7 @@ async def main():
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY environment variable not set")
     
-    openai_client = OpenAI(OPENAI_API_KEY)
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
     # Load validator hotkey
     try:
@@ -210,7 +203,7 @@ async def main():
         evaluation_task = asyncio.create_task(
             run_evaluation_loop(
                 db_path=DB_PATH,
-                openai_api_key=OPENAI_API_KEY,
+                openai_client=openai_client,
                 validator_hotkey=hotkey.ss58_address,
                 batch_size=10,
                 sleep_interval=120
@@ -259,7 +252,7 @@ async def main():
                                     evaluation_task = asyncio.create_task(
                                         run_evaluation_loop(
                                             db_path=DB_PATH,
-                                            openai_api_key=OPENAI_API_KEY,
+                                            openai_client=openai_client,
                                             validator_hotkey=hotkey.ss58_address,
                                             batch_size=10,
                                             sleep_interval=10
@@ -306,14 +299,14 @@ async def main():
 
                     
                     # Fetch next challenge from API with retries
-                    challenge_data = await create_next_codegen_challenge(openai_client)
+                    next_challenge = await create_next_codegen_challenge(openai_client)
 
-                    if not challenge_data:
+                    if not next_challenge:
                         logger.info(f"Sleeping for {CHALLENGE_INTERVAL.total_seconds()} seconds before next challenge check...")
                         await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
                         continue
 
-                    logger.info(f"Processing challenge: task_id={challenge_data['task_id']}")
+                    logger.info(f"Processing challenge: task_id={next_challenge['task_id']}")
 
                     # Log background task status
                     logger.info("Background task status:")
@@ -324,8 +317,8 @@ async def main():
                     for node in available_nodes:
                         # Create challenge
                         challenge = GeneratedCodegenProblem(
-                            problem_statement=challenge.problem_statement,
-                            dynamic_checklist=challenge.dynamic_checklist
+                            problem_statement=next_challenge.problem_statement,
+                            dynamic_checklist=next_challenge.dynamic_checklist
                         )
                         
                         task = asyncio.create_task(
@@ -345,7 +338,7 @@ async def main():
                             node_id=node.node_id,
                             task=task,
                             timestamp=datetime.now(timezone.utc),
-                            challenge=challenge,
+                            challenge=next_challenge,
                             miner_hotkey=node.hotkey
                         )
                         new_challenge_tasks.append(challenge_task)
@@ -353,14 +346,7 @@ async def main():
                     # Add new challenges to active tasks
                     active_challenge_tasks.extend(new_challenge_tasks)
 
-                    # process any completed challenges
-                    await process_challenge_results(
-                        new_challenge_tasks,
-                        db_manager,
-                        validator,
-                        hotkey,
-                        substrate
-                    )
+                    # NOTE: In the background, the evaluation loop looks at pending responses and evaluates them.
 
                     # Log status
                     num_active_challenges = len(active_challenge_tasks)
