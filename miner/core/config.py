@@ -8,7 +8,7 @@ from fiber.chain.interface import get_substrate
 from fiber.chain.metagraph import Metagraph
 from fiber.miner.security.nonce_management import NonceManager
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from substrateinterface import Keypair
 
 class Config(BaseModel):
@@ -19,6 +19,7 @@ class Config(BaseModel):
     metagraph: Metagraph
     httpx_client: httpx.AsyncClient
     nonce_manager: Any  # Using Any to avoid Pydantic validation issues with NonceManager
+    min_stake_threshold: float = Field(default=500.0)
 
     class Config:
         arbitrary_types_allowed = True
