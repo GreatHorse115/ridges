@@ -1,4 +1,3 @@
-
 # Python built in imports 
 from pathlib import Path
 import sys 
@@ -15,7 +14,7 @@ from fiber.chain.interface import get_substrate
 from fiber.chain.models import Node
 from fiber.chain.chain_utils import load_hotkey_keypair
 from fiber.chain.fetch_nodes import get_nodes_for_netuid
-from loguru import logger
+from fiber.logging_utils import get_logger
 from dotenv import load_dotenv
 import httpx
 from openai import OpenAI
@@ -42,6 +41,9 @@ sys.path.append(project_root)
 validator_dir = Path(__file__).parent
 env_path = validator_dir / ".env"
 load_dotenv(env_path)
+
+# Set up logger
+logger = get_logger(__name__)
 
 async def construct_server_address(node: Node) -> str:
     """Construct server address for a node.
