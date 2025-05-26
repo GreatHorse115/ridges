@@ -17,7 +17,7 @@ import openai
 import numpy as np
 from fiber.logging_utils import get_logger
 
-from validator.challenge.challenge_types import HyrdatedGeneratedCodegenProblem, GeneratedCodegenProblem, EmbeddedFile, FilePair, SUPPORTED_CODEGEN_REPOS
+from validator.challenge.challenge_types import HyrdatedGeneratedCodegenProblem, EmbeddedFile, FilePair, CodegenProblemLLMResponse, SUPPORTED_CODEGEN_REPOS
 from validator.config import (
     OPENAI_API_KEY, PREFERRED_OPENAI_MODEL,
     MIN_FILE_CONTENT_LEN_CHARS, MIN_FILES_IN_DIR_TO_GENERATE_PROBLEM
@@ -218,17 +218,6 @@ def get_all_filepairs(
 
     return valid_pairs
 
-def dehydrate_codegen_problem(
-    hydrated_codegen_problem: HyrdatedGeneratedCodegenProblem
-) -> GeneratedCodegenProblem:
-    '''
-    Helper function used to strip context files from codegen problem before sending to miners
-    '''
-    return GeneratedCodegenProblem(
-       problem_statement=hydrated_codegen_problem.problem_statement,
-       dynamic_checklist=hydrated_codegen_problem.dynamic_checklist
-    )
-
 def setup_repositories_and_select_random() -> Path:
     """
     Clones supported repositories if they don't exist 
@@ -300,10 +289,10 @@ async def create_next_codegen_challenge(
             {"role": "system", "content": prompt_with_filepair_context},
             {"role": "user", "content": f"Generate the list of problem statements. Generate exactly 1 problem statement statements, no more and no less"},
         ],
-        response_format=GeneratedCodegenProblem,
+        response_format=CodegenProblemLLMResponse,
     )
 
-    generated_problem: GeneratedCodegenProblem = completion.choices[0]
+    generated_problem: CodegenProblemLLMResponse = completion.choices[0]
     problem_id = str(uuid.uuid4())
 
     return HyrdatedGeneratedCodegenProblem(

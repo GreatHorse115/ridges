@@ -1,7 +1,7 @@
 from fastapi import Depends, Header, HTTPException, Request
 from fiber import constants as cst
 from fiber import utils
-from fiber.chain import signatures
+from fiber.chain.signatures import get_hash, verify_signature
 from fiber.logging_utils import get_logger
 
 from miner.core.config import Config, factory_config
@@ -27,9 +27,9 @@ async def verify_request(
         )
 
     body = await request.body()
-    payload_hash = signatures.get_hash(body)
+    payload_hash = get_hash(body)
     message = utils.construct_header_signing_message(nonce=nonce, miner_hotkey=miner_hotkey, payload_hash=payload_hash)
-    if not signatures.verify_signature(
+    if not verify_signature(
         message=message,
         signer_ss58_address=validator_hotkey,
         signature=signature,

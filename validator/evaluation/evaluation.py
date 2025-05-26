@@ -50,7 +50,7 @@ def remove_docstrings(patch_content: str) -> str:
             stripped_line = line[1:].lstrip()  # Remove '+' for checking
 
             # If we are inside a docstring, check for closing delimiter
-            if in_docstring:
+            if in_docstring and docstring_delim is not None:
                 if docstring_delim in stripped_line:  # Closing delimiter found
                     in_docstring = False
                 continue  # Skip all lines inside the docstring
@@ -97,7 +97,7 @@ class CodeGenValidator:
         Returns:
             An error message if anything fails, otherwise None
         '''
-        return False
+        return None
 
     def evaluate_response(self, miner_response: CodegenResponse) -> ValidationResult:
         patch = self.preprocess_patch(miner_response.response_patch)

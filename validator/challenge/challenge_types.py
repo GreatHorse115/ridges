@@ -41,18 +41,10 @@ class FilePair:
     cosine_similarity: float
     files: List[EmbeddedFile]
 
-
-@dataclass
-class GeneratedCodegenProblem:
+@dataclass 
+class CodegenProblemLLMResponse:
     problem_statement: str
     dynamic_checklist: List[str]
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert challenge to dictionary for sending to miners"""
-        return {
-            "problem_statement": self.problem_statement,
-            "dynamic_checklist": self.dynamic_checklist
-        }
 
 @dataclass
 class HyrdatedGeneratedCodegenProblem:
@@ -72,6 +64,15 @@ class HyrdatedGeneratedCodegenProblem:
         Checklist of items to consider: {self.dynamic_checklist}
         {context_files_string}
         """)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert challenge to dictionary for sending to miners"""
+        return {
+            "challenge_id": self.challenge_id,
+            "context_files": self.context_files.files,
+            "problem_statement": self.problem_statement,
+            "dynamic_checklist": self.dynamic_checklist
+        }
 
 class ValidationResult:
     def __init__(self, 

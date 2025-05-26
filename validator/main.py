@@ -22,8 +22,8 @@ from openai import OpenAI
 
 # Internal package imports
 from validator.db.operations import DatabaseManager
-from validator.challenge.challenge_types import File, FilePair, EmbeddedFile, HyrdatedGeneratedCodegenProblem, ChallengeTask, GeneratedCodegenProblem
-from validator.challenge.create_codegen_challenge import create_next_codegen_challenge, dehydrate_codegen_problem
+from validator.challenge.challenge_types import File, FilePair, EmbeddedFile, HyrdatedGeneratedCodegenProblem, ChallengeTask
+from validator.challenge.create_codegen_challenge import create_next_codegen_challenge
 from validator.challenge.send_codegen_challenge import send_challenge
 from validator.config import (
     NETUID, SUBTENSOR_NETWORK, SUBTENSOR_ADDRESS,
@@ -310,14 +310,14 @@ async def main():
 
                     
                     # Fetch next challenge from API with retries
-                    next_challenge = await create_next_codegen_challenge(openai_client)
+                    challenge = await create_next_codegen_challenge(openai_client)
 
-                    if not next_challenge:
+                    if not challenge:
                         logger.info(f"Sleeping for {CHALLENGE_INTERVAL.total_seconds()} seconds before next challenge check...")
                         await asyncio.sleep(CHALLENGE_INTERVAL.total_seconds())
                         continue
 
-                    logger.info(f"Processing challenge: task_id={next_challenge['task_id']}")
+                    logger.info(f"Processing challenge: task_id={challenge['challenge_id']}")
 
                     # Log background task status
                     logger.info("Background task status:")
@@ -326,12 +326,6 @@ async def main():
                     logger.info(f"  - Cleanup task running: {not cleanup_task.done()}")
 
                     for node in available_nodes:
-                        # Create challenge
-                        challenge = GeneratedCodegenProblem(
-                            problem_statement=next_challenge.problem_statement,
-                            dynamic_checklist=next_challenge.dynamic_checklist
-                        )
-                        
                         task = asyncio.create_task(
                             send_challenge(
                                 challenge=challenge,
@@ -349,7 +343,7 @@ async def main():
                             node_id=node.node_id,
                             task=task,
                             timestamp=datetime.now(timezone.utc),
-                            challenge=next_challenge,
+                            challenge=challenge,
                             miner_hotkey=node.hotkey
                         )
                         new_challenge_tasks.append(challenge_task)

@@ -11,7 +11,6 @@ from fiber.logging_utils import get_logger
 from fiber.validator import client as validator
 
 from validator.challenge.challenge_types import CodegenResponse, HyrdatedGeneratedCodegenProblem
-from validator.challenge.create_codegen_challenge import dehydrate_codegen_problem
 from validator.utils.async_utils import AsyncBarrier
 from validator.db.operations import DatabaseManager
 from validator.config import CHALLENGE_TIMEOUT
@@ -31,7 +30,7 @@ async def send_challenge(
 ) -> httpx.Response:
     """Send a challenge to a miner node using fiber 2.0.0 protocol."""
     endpoint = "/codegen/challenge"
-    payload = dehydrate_codegen_problem(challenge).to_dict()
+    payload = challenge.to_dict()
 
     logger.info(f"Preparing to send challenge to node {node_id}")
     logger.info(f"  Server address: {server_address}")

@@ -4,7 +4,7 @@ from functools import lru_cache
 import os
 
 from fiber.chain.chain_utils import load_hotkey_keypair
-from fiber.chain.interface import get_substrate
+from fiber.chain.interface import get_substrate, SubstrateInterface
 from fiber.chain.metagraph import Metagraph
 from fiber.miner.security.nonce_management import NonceManager
 import httpx

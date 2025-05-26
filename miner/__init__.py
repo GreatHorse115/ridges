@@ -1,1 +1,1 @@
-from .loop import my_func
+# Can keep this empty for now
