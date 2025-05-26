@@ -73,6 +73,18 @@ class HyrdatedGeneratedCodegenProblem:
         {context_files_string}
         """)
 
+class ValidationResult:
+    def __init__(self, 
+        score: float,
+        error: Optional[str] = None):
+        self.score = score
+        self.error = error
+        
+    @property
+    def is_valid(self) -> bool:
+        return self.error is None
+
+
 class ChallengeTask:
     def __init__(self, node_id: int, task: asyncio.Task, timestamp: datetime, challenge: HyrdatedGeneratedCodegenProblem, miner_hotkey: str):
         self.node_id = node_id

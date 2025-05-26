@@ -162,7 +162,7 @@ async def get_available_nodes_with_api(
     
     return selected_nodes
 
-async def weights_update_loop(db_manager: None) -> None:
+async def weights_update_loop(db_manager: DatabaseManager) -> None:
     pass
 
 async def weights_update_loop(db_manager: DatabaseManager) -> None:
@@ -390,22 +390,6 @@ async def main():
 
 
 
-        # Checks if background tasks (eval, weights, cleanup) failed 
-        # Removes completed challenges from the active_challenge_tasks list
-
-        # Gets nodes that are active and are less than their stake max
-        # Does not issue a challenge if there arent enough miners available
-
-        # Then checks num available nodes, and runs the same min check, sleeping if available < MIN
-
-        # If there are enough, generate and send a challenge -> basically some checks and then it sends a signed request to their internal server
-
-        # Once a challenge is constructred, it logs the current background task status, then generates the challenge object and sends it to miners
-        # It extends the active_challenge_tasks with this
-
-        # it then processes and grades any completed challenges
-
-    
 
 # Lastly the if name runs it all and then exists out on keyboard interrupt
 if __name__ == "__main__":
