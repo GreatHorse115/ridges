@@ -28,7 +28,7 @@ from validator.challenge.send_codegen_challenge import send_challenge
 from validator.config import (
     NETUID, SUBTENSOR_NETWORK, SUBTENSOR_ADDRESS,
     WALLET_NAME, HOTKEY_NAME, CHALLENGE_INTERVAL,
-    CHALLENGE_TIMEOUT, DB_PATH,
+    CHALLENGE_TIMEOUT, DB_PATH, WEIGHTS_INTERVAL,
     MAX_MINERS, MIN_MINERS
 )
 from validator.evaluation.evaluation import CodeGenValidator
@@ -159,10 +159,31 @@ async def get_available_nodes_with_api(
     return selected_nodes
 
 async def weights_update_loop(db_manager: DatabaseManager) -> None:
-    pass
+    """Run the weights update loop on WEIGHTS_INTERVAL."""
+    logger.info("Weight updating loop not yet implemented")
+    # logger.info("Starting weights update loop")
+    # consecutive_failures = 0
+    # max_consecutive_failures = 3
+
+    # while True: 
+    #     try:
+    #         raise NotImplementedError("Have not implemented a way to set weights yet.")
+        
+    #     except Exception as e:
+    #         consecutive_failures += 1
+    #         logger.error(f"Error in weights update loop (attempt {consecutive_failures}/{max_consecutive_failures}): {str(e)}")
+            
+    #         if consecutive_failures >= max_consecutive_failures:
+    #             logger.error("Too many consecutive failures in weights update loop, waiting for longer period")
+    #             await asyncio.sleep(WEIGHTS_INTERVAL.total_seconds() * 2)  # Wait twice as long before retrying
+    #             consecutive_failures = 0  # Reset counter after long wait
+    #         else:
+    #             # Wait normal interval before retry
+    #             await asyncio.sleep(WEIGHTS_INTERVAL.total_seconds())
 
 async def periodic_cleanup(db_manager: DatabaseManager, interval_hours: int = 24):
-    pass 
+    logger.info("Not cleaning anything up until push to main db instance implemented")
+    return 
 
 async def main():
     """Main validator loop."""
@@ -184,16 +205,6 @@ async def main():
      # Initialize database manager and validator
     logger.info(f"Initializing database manager with path: {DB_PATH}")
     db_manager = DatabaseManager(DB_PATH)
-
-    # Initialize validator instances
-    validator = CodeGenValidator(openai_client, validator_hotkey=hotkey.ss58_address)
-    
-    # Creates a susbtrate instance
-    substrate = get_substrate(
-        subtensor_network=SUBTENSOR_NETWORK,
-        subtensor_address=SUBTENSOR_ADDRESS
-    )
-
     # Initialize HTTP client with long timeout
     async with httpx.AsyncClient(timeout=CHALLENGE_TIMEOUT.total_seconds()) as client:
         active_challenge_tasks = []  # Track active challenges
