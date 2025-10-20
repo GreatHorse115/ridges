@@ -59,8 +59,7 @@ async def disconnect(reason: str):
     
     try:
         logger.info("Disconnecting validator...")
-        disconnect_request = ValidatorDisconnectRequest(reason=reason)
-        await post_ridges_platform("/validator/disconnect", disconnect_request.model_dump(mode="json"), bearer_token=session_id)
+        await post_ridges_platform("/validator/disconnect", ValidatorDisconnectRequest(reason=reason), bearer_token=session_id)
         logger.info("Disconnected validator")
     except Exception as e:
         logger.error(f"Error in disconnect(): {type(e).__name__}: {e}")
@@ -76,8 +75,7 @@ async def send_heartbeat_loop():
         while True:
             logger.info("Sending heartbeat...")
             system_metrics = await get_system_metrics()
-            heartbeat_request = ValidatorHeartbeatRequest(system_metrics=system_metrics)
-            await post_ridges_platform("/validator/heartbeat", heartbeat_request.model_dump(mode="json"), bearer_token=session_id, quiet=2)
+            await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
             await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
     except Exception as e:
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
@@ -112,8 +110,7 @@ async def update_evaluation_run(evaluation_run_id: str, problem_name: str, updat
         **(extra or {})
     }
     
-    update_request = ValidatorUpdateEvaluationRunRequest(**request_data)
-    await post_ridges_platform("/validator/update-evaluation-run", update_request.model_dump(mode="json"), bearer_token=session_id, quiet=2)
+    await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(**request_data), bearer_token=session_id, quiet=2)
 
 # Truncates a log if required
 def truncate_logs_if_required(log: str) -> str:
@@ -307,8 +304,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
 
     logger.info("Finished evaluation")
 
-    finish_evaluation_request = ValidatorFinishEvaluationRequest()
-    await post_ridges_platform("/validator/finish-evaluation", finish_evaluation_request.model_dump(mode="json"), bearer_token=session_id, quiet=1)
+    await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
 
 
 
@@ -333,22 +329,20 @@ async def main():
             timestamp = int(time.time())
             signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
             
-            register_request = ValidatorRegistrationRequest(
+            register_response_data = await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
                 timestamp=timestamp,
                 signed_timestamp=signed_timestamp,
                 hotkey=config.VALIDATOR_HOTKEY.ss58_address,
                 commit_hash=COMMIT_HASH
-            )
-            register_response_data = await post_ridges_platform("/validator/register-as-validator", register_request.model_dump(mode="json"))
+            ))
             register_response = ValidatorRegistrationResponse.model_validate(register_response_data)
         
         elif config.MODE == "screener":
-            register_request = ScreenerRegistrationRequest(
+            register_response_data = await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
                 name=config.SCREENER_NAME,
                 password=config.SCREENER_PASSWORD,
                 commit_hash=COMMIT_HASH
-            )
-            register_response_data = await post_ridges_platform("/validator/register-as-screener", register_request.model_dump(mode="json"))
+            ))
             register_response = ScreenerRegistrationResponse.model_validate(register_response_data)
     
     except httpx.HTTPStatusError as e:
@@ -405,8 +399,7 @@ async def main():
     while True:
         logger.info("Requesting an evaluation...")
         
-        request_evaluation_request = ValidatorRequestEvaluationRequest()
-        request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", request_evaluation_request.model_dump(mode="json"), bearer_token=session_id, quiet=1)
+        request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
         request_evaluation_response = ValidatorRequestEvaluationResponse.model_validate(request_evaluation_response_data) if request_evaluation_response_data is not None else None # do not need
 
         # If no evaluation is available, wait and try again

@@ -5,6 +5,7 @@ import utils.logger as logger
 import validator.config as config
 
 from typing import Any
+from pydantic import BaseModel
 
 
 
@@ -82,13 +83,13 @@ async def get_ridges_platform(endpoint: str, *, quiet: int = 0) -> Any:
 
 
 
-async def post_ridges_platform(endpoint: str, body: dict = {}, *, bearer_token: str = None, quiet: int = 0) -> Any:
+async def post_ridges_platform(endpoint: str, body: BaseModel, *, bearer_token: str = None, quiet: int = 0) -> Any:
     """
     Helper function that sends a POST request to the Ridges platform.
 
     Args:
         endpoint: The endpoint to send the request to. You do not need to specify the Ridges platform URL, just something like `/validator/register`.
-        body: The body of the request, which will be sent as JSON. By default, this is an empty dictionary.
+        body: The body of the request as a Pydantic model, which will be serialized to JSON.
         bearer_token: The bearer token to use for the request, which will be sent as an `Authorization: Bearer` header. By default, this is `None`, and the header is not sent.
         quiet: The level of quietness.
                - 0: Print all debugging information, including the request and response bodies.
@@ -103,16 +104,19 @@ async def post_ridges_platform(endpoint: str, body: dict = {}, *, bearer_token: 
 
     url = f"{config.RIDGES_PLATFORM_URL.rstrip('/')}/{endpoint.lstrip('/')}"
 
+    # Convert Pydantic model to dict
+    body_dict = body.model_dump(mode="json")
+
     if quiet <= 1:
         logger.debug(f"Sending request for POST {url}")
-    if body != {} and quiet == 0:
-        logger.debug(textwrap.indent(json.dumps(body, indent=2), "  "))
+    if body_dict != {} and quiet == 0:
+        logger.debug(textwrap.indent(json.dumps(body_dict, indent=2), "  "))
     
     try:
         # Send the request
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
             headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token is not None else None
-            response = await client.post(url, json=body, headers=headers)
+            response = await client.post(url, json=body_dict, headers=headers)
             response.raise_for_status()
             response_json = response.json()
 
