@@ -335,7 +335,7 @@ async def main():
                 hotkey=config.VALIDATOR_HOTKEY.ss58_address,
                 commit_hash=COMMIT_HASH
             ))
-            register_response = ValidatorRegistrationResponse.model_validate(register_response_data)
+            register_response = ValidatorRegistrationResponse(**register_response_data)
         
         elif config.MODE == "screener":
             register_response_data = await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
@@ -343,7 +343,7 @@ async def main():
                 password=config.SCREENER_PASSWORD,
                 commit_hash=COMMIT_HASH
             ))
-            register_response = ScreenerRegistrationResponse.model_validate(register_response_data)
+            register_response = ScreenerRegistrationResponse(**register_response_data)
     
     except httpx.HTTPStatusError as e:
         if config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
@@ -378,7 +378,7 @@ async def main():
 
     # Get all the problems in the latest set
     latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
-    latest_set_problems = [EvaluationSetProblem.model_validate(prob) for prob in latest_set_problems_data]
+    latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
     latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
     
     # Prebuild the images for the SWE-Bench Verified problems
@@ -400,7 +400,7 @@ async def main():
         logger.info("Requesting an evaluation...")
         
         request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
-        request_evaluation_response = ValidatorRequestEvaluationResponse.model_validate(request_evaluation_response_data) if request_evaluation_response_data is not None else None # do not need
+        request_evaluation_response = ValidatorRequestEvaluationResponse(**request_evaluation_response_data)
 
         # If no evaluation is available, wait and try again
         if request_evaluation_response is None:
