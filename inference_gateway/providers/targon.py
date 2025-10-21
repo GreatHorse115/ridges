@@ -24,6 +24,7 @@ class WhitelistedTargonModel(BaseModel):
             self.targon_name = self.name
 
 WHITELISTED_TARGON_INFERENCE_MODELS = [
+    WhitelistedTargonModel(name="Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"),
     WhitelistedTargonModel(name="zai-org/GLM-4.5-FP8"),
     WhitelistedTargonModel(name="deepseek-ai/DeepSeek-V3-0324", targon_name="deepseek-ai/DeepSeek-V3"),
     WhitelistedTargonModel(name="zai-org/GLM-4.6-FP8")
@@ -63,8 +64,8 @@ class TargonProvider(Provider):
 
             targon_model_pricing = targon_model["pricing"]
             max_input_tokens = targon_model["context_length"]
-            cost_usd_per_million_input_tokens = targon_model_pricing["prompt"]
-            cost_usd_per_million_output_tokens = targon_model_pricing["completion"]
+            cost_usd_per_million_input_tokens = float(targon_model_pricing["prompt"]) * 1_000_000
+            cost_usd_per_million_output_tokens = float(targon_model_pricing["completion"]) * 1_000_000
 
             self.inference_models.append(ModelInfo(
                 name=whitelisted_targon_model.name,
