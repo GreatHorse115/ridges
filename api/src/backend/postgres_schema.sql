@@ -334,7 +334,7 @@ GROUP BY evaluations.evaluation_id;
 DROP MATERIALIZED VIEW IF EXISTS agent_scores CASCADE;
 
 -- Recreate the materialized view
-CREATE VIEW agent_scores AS
+CREATE MATERIALIZED VIEW agent_scores AS
 WITH all_agents AS (
     -- Get all agent versions from non-banned hotkeys
     SELECT
@@ -371,45 +371,31 @@ agent_evaluations AS (
         AND e.validator_hotkey NOT LIKE 'screener-%'
         AND e.set_id IS NOT NULL
     LEFT JOIN approved_agents avi ON aa.agent_id = avi.agent_id AND e.set_id = avi.set_id
-),
-filtered_scores AS (
-    -- Remove the lowest score for each agent version and set combination
-    SELECT
-        ae.*,
-        COUNT(*) OVER (
-            PARTITION BY ae.agent_id, ae.set_id
-        ) as total_scores
-    FROM agent_evaluations ae
 )
 SELECT
-    fs.agent_id,
-    fs.miner_hotkey,
-    fs.name,
-    fs.version_num,
-    fs.created_at,
-    fs.status,
-    fs.agent_summary,
-    fs.set_id,
-    fs.approved,
-    fs.approved_at,
-    COUNT(DISTINCT fs.validator_hotkey) AS validator_count,
-    AVG(fs.score) AS final_score
-FROM filtered_scores fs
-WHERE fs.set_id IS NOT NULL
-GROUP BY fs.agent_id, fs.miner_hotkey, fs.name, fs.version_num,
-         fs.created_at, fs.status, fs.agent_summary, fs.set_id, fs.approved, fs.approved_at
+    ae.agent_id,
+    ae.miner_hotkey,
+    ae.name,
+    ae.version_num,
+    ae.created_at,
+    ae.status,
+    ae.agent_summary,
+    ae.set_id,
+    ae.approved,
+    ae.approved_at,
+    COUNT(DISTINCT ae.validator_hotkey) AS validator_count,
+    AVG(ae.score) AS final_score
+FROM agent_evaluations ae
+WHERE ae.set_id IS NOT NULL
+GROUP BY ae.agent_id, ae.miner_hotkey, ae.name, ae.version_num,
+         ae.created_at, ae.status, ae.agent_summary, ae.set_id, ae.approved, ae.approved_at
 -- At least 2 validators
 -- NOTE: THIS PARAMETER IS TIED TO NUM_EVALS_PER_AGENT in api/config.py
-HAVING COUNT(DISTINCT fs.validator_hotkey) >= 2
-ORDER BY final_score DESC, created_at ASC;
+HAVING COUNT(DISTINCT ae.validator_hotkey) >= 2;
 
--- Create indexes for fast querying on the materialized view
-DROP INDEX IF EXISTS idx_agent_scores_unique;
-CREATE UNIQUE INDEX idx_agent_scores_unique ON agent_scores (agent_id, set_id);
-CREATE INDEX idx_agent_scores_set_score ON agent_scores (set_id, final_score DESC, created_at ASC);
-CREATE INDEX idx_agent_scores_version ON agent_scores (agent_id);
-CREATE INDEX idx_agent_scores_hotkey ON agent_scores (miner_hotkey);
-CREATE INDEX idx_agent_scores_approved ON agent_scores (approved, set_id, final_score DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_scores_agent_id ON agent_scores (agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_scores_final_score ON agent_scores (final_score);
+CREATE INDEX IF NOT EXISTS idx_agent_scores_created_at ON agent_scores (created_at);
 
 -- Function to refresh evaluation_runs_hydrated
 CREATE OR REPLACE FUNCTION refresh_evaluation_runs_hydrated()
@@ -424,10 +410,31 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION refresh_agent_scores_view()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- REFRESH MATERIALIZED VIEW agent_scores;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY agent_scores;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+create trigger tr_refresh_agent_scores_view
+after insert or update or delete or truncate
+on evaluations for each statement 
+execute procedure refresh_agent_scores_view();
+
+create trigger tr_refresh_agent_scores_view_approved_agents
+after insert or update or delete or truncate
+on approved_agents for each statement 
+execute procedure refresh_agent_scores_view();
+
+create trigger tr_refresh_agent_scores_view_banned_hotkeys
+after insert or update or delete or truncate
+on banned_hotkeys for each statement 
+execute procedure refresh_agent_scores_view();
+
+-- Don't bother with adding agents since they have no score
+create trigger tr_refresh_agent_scores_view_delete_agents
+after update or delete or truncate
+on agents for each statement 
+execute procedure refresh_agent_scores_view();
 
 -- Trigger to refresh materialized views when evaluations table changes
 -- Refreshes in dependency order to ensure fresh data
