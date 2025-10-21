@@ -65,7 +65,7 @@ async def top_agents(
         page=page
     )
 
-async def agent_by_id(agent_id: str) -> Agent:
+async def agent_by_id(agent_id: str) -> Agent | AgentScored:
     agent = await get_agent_by_id(agent_id=uuid.UUID(agent_id))
     
     if agent is None:
@@ -76,7 +76,7 @@ async def agent_by_id(agent_id: str) -> Agent:
 
     return agent
 
-async def agent_by_hotkey(miner_hotkey: str) -> Agent:
+async def agent_by_hotkey(miner_hotkey: str) -> Agent | AgentScored:
     """
     Returns the latest agent submitted by a hotkey
     """
