@@ -104,7 +104,6 @@ async def post_ridges_platform(endpoint: str, body: BaseModel, *, bearer_token: 
 
     url = f"{config.RIDGES_PLATFORM_URL.rstrip('/')}/{endpoint.lstrip('/')}"
 
-    # Convert Pydantic model to dict
     body_dict = body.model_dump(mode="json")
 
     if quiet <= 1:
