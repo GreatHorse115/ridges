@@ -10,7 +10,8 @@ from inference_gateway.models import ModelInfo, InferenceResult, InferenceMessag
 
 
 
-TARGON_MODELS_URL = f"{config.TARGON_BASE_URL}/models"
+if config.USE_TARGON:
+    TARGON_MODELS_URL = f"{config.TARGON_BASE_URL}/models"
 
 
 
