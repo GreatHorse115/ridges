@@ -1,18 +1,3 @@
--- Threshold configuration table
-CREATE TABLE IF NOT EXISTS threshold_config (
-    key TEXT PRIMARY KEY NOT NULL,
-    value DOUBLE PRECISION NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Insert default threshold configuration values
-INSERT INTO threshold_config (key, value) VALUES 
-('innovation_weight', 0.25),
-('decay_per_epoch', 0.05),
-('frontier_scale', 0.84),
-('improvement_weight', 0.30)
-ON CONFLICT (key) DO NOTHING;
-
 -- Create AgentStatus enum type if it doesn't exist
 DO $$
 BEGIN
@@ -167,7 +152,7 @@ CREATE TABLE IF NOT EXISTS evaluation_run_logs
     PRIMARY KEY (evaluation_run_id, type)
 );
 
-
+-- TODO: REDESIGN THIS TABLE
 -- Embeddings table
 CREATE TABLE IF NOT EXISTS embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -211,17 +196,6 @@ CREATE TABLE IF NOT EXISTS approved_agents (
 );
 
 
--- Open Users table
-CREATE TABLE IF NOT EXISTS open_users (
-    open_hotkey TEXT NOT NULL PRIMARY KEY,
-    auth0_user_id TEXT NOT NULL,
-    email TEXT NOT NULL,
-    name TEXT NOT NULL,
-    registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    admin INT NOT NULL DEFAULT 7
-);
-
-
 -- Treasury hotkeys
 CREATE TABLE IF NOT EXISTS treasury_wallets (
     hotkey TEXT NOT NULL PRIMARY KEY,
@@ -239,13 +213,6 @@ CREATE TABLE IF NOT EXISTS platform_status_checks (
     error TEXT
 );
 
--- Open User Bittensor Hotkeys table
-CREATE TABLE IF NOT EXISTS open_user_bittensor_hotkeys (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    open_hotkey TEXT NOT NULL REFERENCES open_users(open_hotkey),
-    bittensor_hotkey TEXT,
-    set_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- Top agents table
 CREATE TABLE IF NOT EXISTS top_agents (
