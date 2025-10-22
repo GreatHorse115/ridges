@@ -20,6 +20,9 @@ from api.src.endpoints.evaluation_sets import router as evaluation_sets_router
 # NEW fixed endpoints
 from api.endpoints.validator import router as validator_router
 from api.endpoints.debug import router as debug_router
+from api.endpoints.agent import router as agent_router
+from api.endpoints.evaluation_run import router as evaluation_run_router
+from api.endpoints.evaluations import router as evaluations_router
 
 
 
@@ -104,6 +107,9 @@ app.include_router(scoring_router, prefix="/scoring")
 app.include_router(validator_router, prefix="/validator")
 app.include_router(evaluation_sets_router, prefix="/evaluation-sets")
 app.include_router(debug_router, prefix="/debug")
+app.include_router(agent_router, prefix="/agent")
+app.include_router(evaluation_run_router, prefix="/evaluation-run")
+app.include_router(evaluations_router, prefix="/evaluations")
 
 
 if __name__ == "__main__":

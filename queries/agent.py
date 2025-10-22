@@ -90,6 +90,19 @@ async def get_agent_by_id(conn: DatabaseConnection, agent_id: UUID) -> Optional[
 
     return Agent(**result)
 
+
+@db_operation
+async def get_agent_by_evaluation_run_id(conn: DatabaseConnection, evaluation_run_id: UUID) -> Optional[Agent]:
+    result = await conn.fetchrow("""
+        SELECT * FROM agents
+        WHERE agent_id = (
+            SELECT agent_id FROM evaluation_runs WHERE evaluation_run_id = $1 LIMIT 1
+        )
+    """, evaluation_run_id)
+    if result is None:
+        return None
+    return Agent(**result)
+
 # TODO ADAM: fix this
 @db_operation
 async def get_latest_agent_for_hotkey(conn: DatabaseConnection, miner_hotkey: str) -> Optional[Agent] | Optional[AgentScored]:
