@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from uuid import UUID
 
 import utils.logger as logger
@@ -84,8 +84,8 @@ async def get_evaluation_by_id(conn: DatabaseConnection, evaluation_id: UUID) ->
 
 
 @db_operation
-async def get_hydrated_evaluation_by_id(conn: DatabaseConnection, evaluation_id: UUID) -> HydratedEvaluation:
-    response = await conn.fetchrow(
+async def get_hydrated_evaluation_by_id(conn: DatabaseConnection, evaluation_id: UUID) -> Optional[HydratedEvaluation]:
+    result = await conn.fetchrow(
         """
         SELECT *
         FROM evaluations_hydrated
@@ -94,7 +94,26 @@ async def get_hydrated_evaluation_by_id(conn: DatabaseConnection, evaluation_id:
         evaluation_id,
     )
 
-    return HydratedEvaluation(**response)
+    if result is None:
+        return None
+
+    return HydratedEvaluation(**result)
+
+@db_operation
+async def get_hydrated_evaluation_by_evaluation_run_id(conn: DatabaseConnection, evaluation_run_id: UUID) -> Optional[HydratedEvaluation]:
+    result = await conn.fetchrow(
+        """
+        SELECT *
+        FROM evaluations_hydrated
+        WHERE evaluation_id = (SELECT evaluation_id FROM evaluation_runs WHERE evaluation_run_id = $1 LIMIT 1)
+        """,
+        evaluation_run_id,
+    )
+
+    if result is None:
+        return None
+    
+    return HydratedEvaluation(**result)
 
 
 
