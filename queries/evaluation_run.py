@@ -38,6 +38,21 @@ async def get_evaluation_run_by_id(conn: DatabaseConnection, evaluation_run_id: 
 
 
 @db_operation
+async def get_evaluation_run_status_by_id(conn: DatabaseConnection, evaluation_run_id: UUID) -> Optional[EvaluationRunStatus]:
+    status = await conn.fetchval(
+        """
+        SELECT status FROM evaluation_runs WHERE evaluation_run_id = $1
+        """,
+        evaluation_run_id)
+
+    if status is None:
+        return None
+
+    return EvaluationRunStatus(status)
+
+
+
+@db_operation
 async def get_all_evaluation_runs_in_evaluation_id(conn: DatabaseConnection, evaluation_id: int) -> List[EvaluationRun]:
     rows = await conn.fetch(
         """
@@ -126,13 +141,13 @@ async def create_evaluation_run_log(conn: DatabaseConnection, evaluation_run_id:
     )
 
     num_lines = len(logs.split('\n'))
-    logger.debug(f"Created evaluation run log for evaluation run {evaluation_run_id} with type {type}, {num_lines} lines, {len(logs)} characters")
+    logger.debug(f"Created evaluation run log for evaluation run {evaluation_run_id} with type {type}, {num_lines} line(s), {len(logs)} character(s)")
 
 
 
 @db_operation
 async def check_if_evaluation_run_logs_exist(conn: DatabaseConnection, evaluation_run_id: UUID, type: EvaluationRunLogType) -> bool:
-    result = await conn.fetchrow(
+    return await conn.fetchval(
         """
         SELECT EXISTS (
             SELECT 1 FROM evaluation_run_logs
@@ -143,17 +158,18 @@ async def check_if_evaluation_run_logs_exist(conn: DatabaseConnection, evaluatio
         type.value
     )
 
-    return result['exists']
-
 
 
 @db_operation
-async def get_evaluation_run_status_by_id(conn: DatabaseConnection, evaluation_run_id: UUID) -> Optional[EvaluationRunStatus]:
-    status = await conn.fetchval("""
-        SELECT status FROM evaluation_runs WHERE evaluation_run_id = $1
-    """, evaluation_run_id)
+async def get_evaluation_run_logs_by_id(conn: DatabaseConnection, evaluation_run_id: UUID, type: EvaluationRunLogType) -> Optional[str]:
+    logs = await conn.fetchval(
+        """
+        SELECT logs FROM evaluation_run_logs
+        WHERE type = $1
+        and evaluation_run_id = $2
+        """,
+        type,
+        evaluation_run_id
+    )
 
-    if status is None:
-        return None
-
-    return EvaluationRunStatus(status)
+    return logs

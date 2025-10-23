@@ -109,8 +109,8 @@ app.include_router(evaluation_sets_router, prefix="/evaluation-sets")
 app.include_router(debug_router, prefix="/debug")
 app.include_router(agent_router, prefix="/agent")
 app.include_router(evaluation_run_router, prefix="/evaluation-run")
-app.include_router(evaluations_router, prefix="/evaluations")
+app.include_router(evaluations_router, prefix="/evaluation")
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, ws_ping_timeout=None, ws_max_size=32 * 1024 * 1024)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
