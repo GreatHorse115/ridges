@@ -176,7 +176,7 @@ class SWEBenchVerifiedSuite(ProblemSuite):
             test_spec = make_test_spec(SWEbenchInstance(**swebench_instance))
 
             pred = {
-                "model_name_or_path": evaluation_run_id,
+                "model_name_or_path": str(evaluation_run_id),
                 "model_patch": patch,
                 "instance_id": problem.name
             }
