@@ -19,3 +19,8 @@ test_agent_results/
 # Adam
 gui/
 analyzer/
+
+
+
+# OLD
+subnet_hotkeys_cache.json
