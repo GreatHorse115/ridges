@@ -4,6 +4,9 @@
 # .env
 *.env
 
+# Python
+__pycache__/
+
 # uv
 .venv/
 
