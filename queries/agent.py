@@ -96,11 +96,15 @@ async def get_agent_by_evaluation_run_id(conn: DatabaseConnection, evaluation_ru
     result = await conn.fetchrow("""
         SELECT * FROM agents
         WHERE agent_id = (
-            SELECT agent_id FROM evaluation_runs WHERE evaluation_run_id = $1 LIMIT 1
+            SELECT agent_id FROM evaluations WHERE evaluation_id = (
+                SELECT evaluation_id FROM evaluation_runs WHERE evaluation_run_id = $1 LIMIT 1
+            ) LIMIT 1
         )
     """, evaluation_run_id)
+    
     if result is None:
         return None
+
     return Agent(**result)
 
 # TODO ADAM: fix this
