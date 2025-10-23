@@ -3,7 +3,6 @@ import json
 import utils.logger as logger
 
 from uuid import UUID, uuid4
-from datetime import datetime
 from typing import List, Optional
 from utils.database import db_operation, DatabaseConnection
 from models.evaluation_run import EvaluationRun, EvaluationRunStatus, EvaluationRunLogType
