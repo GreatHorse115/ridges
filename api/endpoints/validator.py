@@ -28,9 +28,11 @@ from utils.fiber import validate_signed_timestamp
 from utils.s3 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import validator_hotkey_to_name, is_validator_hotkey_whitelisted
+from api.endpoints.validator_models import *
 
 
-# A connected validator
+
+# A validator
 class Validator(BaseModel):
     session_id: UUID
 
@@ -155,19 +157,6 @@ router = APIRouter()
 
 
 # /validator/register-as-validator
-
-class ValidatorRegistrationRequest(BaseModel):
-    timestamp: int
-    signed_timestamp: str
-    hotkey: str
-    commit_hash: str
-
-class ValidatorRegistrationResponse(BaseModel):
-    session_id: UUID
-    running_agent_timeout_seconds: int = config.VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS
-    running_eval_timeout_seconds: int = config.VALIDATOR_RUNNING_EVAL_TIMEOUT_SECONDS
-    max_evaluation_run_log_size_bytes: int = config.VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES
-
 @router.post("/register-as-validator")
 async def validator_register_as_validator(
     request: Request,
@@ -225,23 +214,16 @@ async def validator_register_as_validator(
     logger.info(f"  Session ID: {session_id}")
     logger.info(f"  IP Address: {ip_address}")
     
-    return ValidatorRegistrationResponse(session_id=session_id)
+    return ValidatorRegistrationResponse(
+        session_id=session_id,
+        running_agent_timeout_seconds=config.VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS,
+        running_eval_timeout_seconds=config.VALIDATOR_RUNNING_EVAL_TIMEOUT_SECONDS,
+        max_evaluation_run_log_size_bytes=config.VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES
+    )
 
 
 
 # /validator/register-as-screener
-
-class ScreenerRegistrationRequest(BaseModel):
-    name: str
-    password: str
-    commit_hash: str
-
-class ScreenerRegistrationResponse(BaseModel):
-    session_id: UUID
-    running_agent_timeout_seconds: int = config.VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS
-    running_eval_timeout_seconds: int = config.VALIDATOR_RUNNING_EVAL_TIMEOUT_SECONDS
-    max_evaluation_run_log_size_bytes: int = config.VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES
-
 @router.post("/register-as-screener")
 async def validator_register_as_screener(
     request: Request,
@@ -300,22 +282,17 @@ async def validator_register_as_screener(
     logger.info(f"  Session ID: {session_id}")
     logger.info(f"  IP Address: {ip_address}")
     
-    return ScreenerRegistrationResponse(session_id=session_id)
+    return ScreenerRegistrationResponse(
+        session_id=session_id,
+        running_agent_timeout_seconds=config.VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS,
+        running_eval_timeout_seconds=config.VALIDATOR_RUNNING_EVAL_TIMEOUT_SECONDS,
+        max_evaluation_run_log_size_bytes=config.VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES
+    )
 
 
 
 # /validator/request-evaluation
 validator_request_evaluation_lock = asyncio.Lock()
-
-class ValidatorRequestEvaluationRequest(BaseModel):
-    pass
-
-class ValidatorRequestEvaluationResponseEvaluationRun(BaseModel): # :(
-    evaluation_run_id: UUID
-    problem_name: str
-class ValidatorRequestEvaluationResponse(BaseModel):
-    agent_code: str
-    evaluation_runs: List[ValidatorRequestEvaluationResponseEvaluationRun]
 
 @router.post("/request-evaluation")
 @handle_validator_http_exceptions
@@ -359,12 +336,6 @@ async def validator_request_evaluation(
 
 
 # /validator/heartbeat
-
-class ValidatorHeartbeatRequest(BaseModel):
-    system_metrics: SystemMetrics
-class ValidatorHeartbeatResponse(BaseModel):
-    pass
-
 @router.post("/heartbeat")
 async def validator_heartbeat(
     request: ValidatorHeartbeatRequest,
@@ -382,23 +353,6 @@ async def validator_heartbeat(
 
 
 # /validator/update-evaluation-run
-
-class ValidatorUpdateEvaluationRunRequest(BaseModel):
-    evaluation_run_id: UUID
-    updated_status: EvaluationRunStatus
-    
-    patch: Optional[str] = None
-    test_results: Optional[List[ProblemTestResult]] = None
-
-    agent_logs: Optional[str] = None
-    eval_logs: Optional[str] = None
-
-    error_code: Optional[int] = None
-    error_message: Optional[str] = None
-
-class ValidatorUpdateEvaluationRunResponse(BaseModel):
-    pass
-
 @router.post("/update-evaluation-run")
 @handle_validator_http_exceptions
 async def validator_update_evaluation_run(
@@ -616,12 +570,6 @@ async def validator_update_evaluation_run(
 
 
 # /validator/disconnect
-
-class ValidatorDisconnectRequest(BaseModel):
-    reason: str
-class ValidatorDisconnectResponse(BaseModel):
-    pass
-
 @router.post("/disconnect")
 async def validator_disconnect(
     request: ValidatorDisconnectRequest,
@@ -638,11 +586,6 @@ async def validator_disconnect(
 
 
 # /validator/finish-evaluation
-class ValidatorFinishEvaluationRequest(BaseModel):
-    pass
-class ValidatorFinishEvaluationResponse(BaseModel):
-    pass
-
 @router.post("/finish-evaluation")
 @handle_validator_http_exceptions
 async def validator_finish_evaluation(
@@ -685,17 +628,6 @@ async def validator_finish_evaluation(
 
 
 # /validator/connected-validators-info
-class ConnectedValidatorInfo(BaseModel):
-    name: str
-    hotkey: str
-    time_connected: datetime
-
-    time_last_heartbeat: Optional[datetime] = None
-    system_metrics: Optional[SystemMetrics] = None
-
-    evaluation: Optional[Evaluation] = None
-    agent: Optional[Agent] = None
-
 @router.get("/connected-validators-info")
 async def validator_connected_validators_info() -> List[ConnectedValidatorInfo]:
     connected_validators: List[ConnectedValidatorInfo] = []

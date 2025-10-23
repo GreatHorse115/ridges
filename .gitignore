@@ -4,11 +4,11 @@
 # .env
 *.env
 
-# Python
-__pycache__/
-
 # uv
 .venv/
+
+# Python
+__pycache__/
 
 # SWE-Bench
 logs/

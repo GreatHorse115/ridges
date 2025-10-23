@@ -10,6 +10,7 @@ import utils.logger as logger
 import validator.config as config
 
 from typing import Any, Dict, Optional
+from api.endpoints.validator_models import *
 from models.problem import ProblemTestResultStatus
 from utils.git import COMMIT_HASH, reset_local_repo
 from evaluator.models import EvaluationRunException
@@ -21,16 +22,6 @@ from validator.http_utils import get_ridges_platform, post_ridges_platform
 from evaluator.problem_suites.polyglot.polyglot_suite import PolyglotSuite
 from models.evaluation_run import EvaluationRunStatus, EvaluationRunErrorCode
 from evaluator.problem_suites.swebench_verified.swebench_verified_suite import SWEBenchVerifiedSuite
-
-from api.endpoints.validator import (
-    ValidatorHeartbeatRequest, ValidatorHeartbeatResponse,
-    ValidatorDisconnectRequest, ValidatorDisconnectResponse,
-    ScreenerRegistrationRequest, ScreenerRegistrationResponse,
-    ValidatorRegistrationRequest, ValidatorRegistrationResponse,
-    ValidatorFinishEvaluationRequest, ValidatorFinishEvaluationResponse,
-    ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse,
-    ValidatorUpdateEvaluationRunRequest, ValidatorUpdateEvaluationRunResponse
-)
 
 
 
