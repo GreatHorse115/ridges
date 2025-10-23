@@ -106,7 +106,6 @@ async def get_agent_by_evaluation_run_id(conn: DatabaseConnection, evaluation_ru
 
     return Agent(**result)
 
-# TODO ADAM: fix this
 @db_operation
 async def get_latest_agent_for_hotkey(conn: DatabaseConnection, miner_hotkey: str) -> Optional[Agent] | Optional[AgentScored]:
     scoredResult = await conn.fetchrow("""
