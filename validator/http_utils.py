@@ -89,7 +89,7 @@ async def post_ridges_platform(endpoint: str, body: BaseModel, *, bearer_token: 
 
     Args:
         endpoint: The endpoint to send the request to. You do not need to specify the Ridges platform URL, just something like `/validator/register`.
-        body: The body of the request as a Pydantic model, which will be serialized to JSON.
+        body: The body of the request (as a Pydantic object), which will be serialized to JSON before being sent.
         bearer_token: The bearer token to use for the request, which will be sent as an `Authorization: Bearer` header. By default, this is `None`, and the header is not sent.
         quiet: The level of quietness.
                - 0: Print all debugging information, including the request and response bodies.

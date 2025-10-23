@@ -11,10 +11,10 @@ import validator.config as config
 
 from typing import Any, Dict, Optional
 from models.problem import ProblemTestResultStatus
-from models.evaluation_set import EvaluationSetProblem
 from utils.git import COMMIT_HASH, reset_local_repo
 from evaluator.models import EvaluationRunException
 from utils.system_metrics import get_system_metrics
+from models.evaluation_set import EvaluationSetProblem
 from evaluator.sandbox.sandbox_manager import SandboxManager
 from evaluator.problem_suites.problem_suite import ProblemSuite
 from validator.http_utils import get_ridges_platform, post_ridges_platform
@@ -22,17 +22,15 @@ from evaluator.problem_suites.polyglot.polyglot_suite import PolyglotSuite
 from models.evaluation_run import EvaluationRunStatus, EvaluationRunErrorCode
 from evaluator.problem_suites.swebench_verified.swebench_verified_suite import SWEBenchVerifiedSuite
 
-# Import request/response models from validator.py
 from api.endpoints.validator import (
-    ValidatorRegistrationRequest, ValidatorRegistrationResponse,
-    ScreenerRegistrationRequest, ScreenerRegistrationResponse,
-    ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse,
     ValidatorHeartbeatRequest, ValidatorHeartbeatResponse,
-    ValidatorUpdateEvaluationRunRequest, ValidatorUpdateEvaluationRunResponse,
     ValidatorDisconnectRequest, ValidatorDisconnectResponse,
-    ValidatorFinishEvaluationRequest, ValidatorFinishEvaluationResponse
+    ScreenerRegistrationRequest, ScreenerRegistrationResponse,
+    ValidatorRegistrationRequest, ValidatorRegistrationResponse,
+    ValidatorFinishEvaluationRequest, ValidatorFinishEvaluationResponse,
+    ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse,
+    ValidatorUpdateEvaluationRunRequest, ValidatorUpdateEvaluationRunResponse
 )
-
 
 
 
@@ -41,7 +39,6 @@ session_id = None
 running_agent_timeout_seconds = None
 running_eval_timeout_seconds = None
 max_evaluation_run_log_size_bytes = None
-
 
 
 
@@ -90,7 +87,7 @@ async def set_weights_loop():
 
         weights_mapping = await get_ridges_platform("/scoring/weights", quiet=1)
 
-        from validator.set_weights import set_weights_from_mapping # importing here because this is probably gonna be removed/renamed
+        from validator.set_weights import set_weights_from_mapping # TODO ADAM: importing here because this is probably gonna be removed/renamed
         await set_weights_from_mapping(weights_mapping)
 
         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
@@ -103,14 +100,13 @@ async def set_weights_loop():
 async def update_evaluation_run(evaluation_run_id: str, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
     logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")
     
-    # Create the request model with the required fields
-    request_data = {
-        "evaluation_run_id": evaluation_run_id,
-        "updated_status": updated_status,
+    await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
+        evaluation_run_id=evaluation_run_id,
+        updated_status=updated_status,
         **(extra or {})
-    }
-    
-    await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(**request_data), bearer_token=session_id, quiet=2)
+    ), bearer_token=session_id, quiet=2)
+
+
 
 # Truncates a log if required
 def truncate_logs_if_required(log: str) -> str:
@@ -277,13 +273,10 @@ async def _run_evaluation_run(evaluation_run_id: str, problem_name: str, agent_c
 
 # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
 async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
-    agent_code = request_evaluation_response.agent_code
-    evaluation_runs = request_evaluation_response.evaluation_runs
-
     logger.info("Received evaluation:")
-    logger.info(f"  # of evaluation runs: {len(evaluation_runs)}")
+    logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
-    for evaluation_run in evaluation_runs:
+    for evaluation_run in request_evaluation_response.evaluation_runs:
         logger.info(f"    {evaluation_run.problem_name}")
 
 
@@ -291,14 +284,14 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     logger.info("Starting evaluation...")
 
     tasks = []
-    for evaluation_run in evaluation_runs:
+    for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
 
         if config.SIMULATE_EVALUATION_RUNS:
             tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
         else:
-            tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, agent_code)))
+            tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
 
     await asyncio.gather(*tasks)
 
@@ -329,21 +322,19 @@ async def main():
             timestamp = int(time.time())
             signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
             
-            register_response_data = await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
+            register_response = ValidatorRegistrationResponse(**(await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
                 timestamp=timestamp,
                 signed_timestamp=signed_timestamp,
                 hotkey=config.VALIDATOR_HOTKEY.ss58_address,
                 commit_hash=COMMIT_HASH
-            ))
-            register_response = ValidatorRegistrationResponse(**register_response_data)
+            ))))
         
         elif config.MODE == "screener":
-            register_response_data = await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
+            register_response = ScreenerRegistrationResponse(**(await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
                 name=config.SCREENER_NAME,
                 password=config.SCREENER_PASSWORD,
                 commit_hash=COMMIT_HASH
-            ))
-            register_response = ScreenerRegistrationResponse(**register_response_data)
+            ))))
     
     except httpx.HTTPStatusError as e:
         if config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
@@ -399,8 +390,7 @@ async def main():
     while True:
         logger.info("Requesting an evaluation...")
         
-        request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
-        request_evaluation_response = ValidatorRequestEvaluationResponse(**request_evaluation_response_data)
+        request_evaluation_response = ValidatorRequestEvaluationResponse(**(await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)))
 
         # If no evaluation is available, wait and try again
         if request_evaluation_response is None:
