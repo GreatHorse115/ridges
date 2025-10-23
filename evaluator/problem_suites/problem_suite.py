@@ -4,13 +4,11 @@ import os
 import requests
 import traceback
 import utils.logger as logger
-import validator.config as config
 
 from uuid import UUID
 from models.problem import Problem
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple
-from utils.temp import create_temp_dir
 from models.problem import ProblemTestResult
 from evaluator.models import EvaluationRunException
 from models.evaluation_run import EvaluationRunErrorCode

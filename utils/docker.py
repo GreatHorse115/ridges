@@ -3,18 +3,37 @@ import subprocess
 import utils.logger as logger
 
 
-logger.info("Creating Docker client...")
-try:
-    docker_client = docker.from_env()
-    logger.info("Created Docker client")
-except Exception as e:
-    logger.fatal(f"Failed to create Docker client: {e}")
+
+docker_client = None
 
 
 
-def build_docker_image(dockerfile_dir, tag):
+def _initialize_docker():
+    logger.info("Initializing Docker...")
+    try:
+        global docker_client
+        docker_client = docker.from_env()
+        logger.info("Initialized Docker")
+    except Exception as e:
+        logger.fatal(f"Failed to initialize Docker: {e}")
+
+
+
+def get_docker_client():
     """
-    Build a Docker image.
+    Gets the Docker client. If it is not initialized, initializes it (once per program).
+    """
+
+    if docker_client is None:
+        _initialize_docker()
+    
+    return docker_client
+
+
+
+def build_docker_image(dockerfile_dir: str, tag: str) -> None:
+    """
+    Builds a Docker image.
 
     Args:
         dockerfile_dir: Path to a directory containing a Dockerfile
@@ -32,14 +51,15 @@ def build_docker_image(dockerfile_dir, tag):
             raise Exception(f"Docker build failed with exit code {result.returncode}")
             
     except Exception as e:
+
         logger.error(f"Failed to build Docker image: {e}")
         raise
 
 
 
-def get_num_docker_containers():
+def get_num_docker_containers() -> int:
     """
-    Get the number of Docker containers running.
+    Gets the number of Docker containers running.
     """
 
     # This is equivalent to `docker ps -q | wc -l`
@@ -48,11 +68,13 @@ def get_num_docker_containers():
 
 
 
-# TODO ADAM
-def stop_and_delete_all_docker_containers():
+# TODO ADAM: optimize
+def stop_and_delete_all_docker_containers() -> None:
     """
-    Stop and delete all Docker containers.
+    Stops and deletes all Docker containers.
     """
+
+    docker_client = get_docker_client()
     
     logger.info("Stopping and deleting all containers...")
     
@@ -77,10 +99,12 @@ def stop_and_delete_all_docker_containers():
 
 
 
-def create_internal_docker_network(name: str):
+def create_internal_docker_network(name: str) -> None:
     """
     Creates an internal Docker network, if it does not already exist.
     """
+
+    docker_client = get_docker_client()
     
     try:
         docker_client.networks.get(name)
@@ -91,10 +115,12 @@ def create_internal_docker_network(name: str):
 
 
 
-def connect_docker_container_to_internet(container: docker.models.containers.Container):
+def connect_docker_container_to_internet(container: docker.models.containers.Container) -> None:
     """
     Connects a Docker container to the internet.
     """
+
+    docker_client = get_docker_client()
 
     logger.info(f"Connecting Docker container {container.name} to internet...")
 
