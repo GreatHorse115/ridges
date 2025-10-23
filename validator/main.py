@@ -390,15 +390,15 @@ async def main():
     while True:
         logger.info("Requesting an evaluation...")
         
-        request_evaluation_response = ValidatorRequestEvaluationResponse(**(await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)))
+        request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
 
         # If no evaluation is available, wait and try again
-        if request_evaluation_response is None:
+        if request_evaluation_response_data is None:
             logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
             await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)
             continue
 
-        await _run_evaluation(request_evaluation_response)
+        await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
 
 
 
