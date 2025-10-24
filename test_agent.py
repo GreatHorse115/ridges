@@ -28,6 +28,7 @@ evaluation_id = uuid4()
 
 
 global inference_gateway_url
+global agent_path
 global agent_code
 global running_agent_timeout_seconds
 global running_eval_timeout_seconds
@@ -158,24 +159,25 @@ async def run_local_evaluation_run(sandbox_manager: SandboxManager, problem_suit
 
 
 
-    test_agent_result_dir = TEST_AGENT_RESULTS_DIR / f"{datetime.now().strftime('%Y-%m-%d')}__{evaluation_run.evaluation_id}" / f"{problem_name}__{evaluation_run.evaluation_run_id}"
+    test_agent_result_evaluation_dir = TEST_AGENT_RESULTS_DIR / f"{datetime.now().strftime('%Y-%m-%d')}__{pathlib.Path(agent_path).name}__{evaluation_id}"
+    test_agent_result_evaluation_run_dir = test_agent_result_evaluation_dir / f"{problem_name}__{evaluation_run.evaluation_run_id}"
 
-    logger.info(f"[{problem_name}] Saving results to {test_agent_result_dir}...")
+    logger.info(f"[{problem_name}] Saving results to {test_agent_result_evaluation_run_dir}...")
     
-    os.makedirs(test_agent_result_dir, exist_ok=True)
+    os.makedirs(test_agent_result_evaluation_run_dir, exist_ok=True)
 
-    with open(test_agent_result_dir / "evaluation_run.json", "w") as f:
-        f.write(evaluation_run.model_dump_json(exclude={"agent_logs", "eval_logs"}))
+    with open(test_agent_result_evaluation_run_dir / "evaluation_run.json", "w") as f:
+        f.write(json.dumps(evaluation_run.model_dump(mode="json", exclude={"agent_logs", "eval_logs"}), indent=4))
 
     if evaluation_run.agent_logs is not None:
-        with open(test_agent_result_dir / "agent_logs.txt", "w") as f:
+        with open(test_agent_result_evaluation_run_dir / "agent_logs.txt", "w") as f:
             f.write(evaluation_run.agent_logs)
 
     if evaluation_run.eval_logs is not None:
-        with open(test_agent_result_dir / "eval_logs.txt", "w") as f:
+        with open(test_agent_result_evaluation_run_dir / "eval_logs.txt", "w") as f:
             f.write(evaluation_run.eval_logs)
 
-    logger.info(f"[{problem_name}] Saved results to {test_agent_result_dir}...")
+    logger.info(f"[{problem_name}] Saved results to {test_agent_result_evaluation_run_dir}...")
 
 
 
@@ -185,6 +187,15 @@ async def run_local_evaluation_run(sandbox_manager: SandboxManager, problem_suit
 
 async def run_problems(agent_code: str, problem_names: List[str]):
     os.makedirs(TEST_AGENT_RESULTS_DIR, exist_ok=True)
+
+
+
+    test_agent_result_evaluation_dir = TEST_AGENT_RESULTS_DIR / f"{datetime.now().strftime('%Y-%m-%d')}__{pathlib.Path(agent_path).name}__{evaluation_id}"
+
+    os.makedirs(test_agent_result_evaluation_dir, exist_ok=True)
+
+    with open(test_agent_result_evaluation_dir / pathlib.Path(agent_path).name, "w") as f:
+        f.write(agent_code)
 
 
     
@@ -208,18 +219,20 @@ async def run_problems(agent_code: str, problem_names: List[str]):
 
 @click.group()
 @click.option("--inference-url", required=True, type=str, help="The inference gateway URL (e.g., http://192.168.0.1:1234)")
-@click.option("--agent-path", required=True, type=str, help="The path to the agent file (e.g., ~/agents/agent.py)")
+@click.option("--agent-path", "_agent_path", required=True, type=str, help="The path to the agent file (e.g., ~/agents/agent.py)")
 @click.option("--agent-timeout", default=2400, type=int, help="The timeout in seconds for running the agent, in seconds")
 @click.option("--eval-timeout", default=600, type=int, help="The timeout in seconds for running the evaluation, in seconds")
 @click.option("--include-solutions", "_include_solutions", is_flag=True, help="Whether or not to include solutions in the evaluation")
-def cli(inference_url: str, agent_path: str, agent_timeout: int, eval_timeout: int, _include_solutions: bool):
+def cli(inference_url: str, _agent_path: str, agent_timeout: int, eval_timeout: int, _include_solutions: bool):
     global inference_gateway_url
+    global agent_path
     global agent_code
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
     global include_solutions
 
     inference_gateway_url = inference_url
+    agent_path = _agent_path
     with open(agent_path, "r") as f:
         agent_code = f.read()
     running_agent_timeout_seconds = agent_timeout
@@ -233,8 +246,9 @@ def cli(inference_url: str, agent_path: str, agent_timeout: int, eval_timeout: i
 
 @cli.command()
 @click.argument("problem_name", required=True, type=str)
-def test_problem(problem_name: str):
-    asyncio.run(run_problems(agent_code, [problem_name]))
+@click.option("--num-runs", default=1, type=int, help="The number of times to run the problem")
+def test_problem(problem_name: str, num_runs: int):
+    asyncio.run(run_problems(agent_code, [problem_name] * num_runs))
 
 
 
