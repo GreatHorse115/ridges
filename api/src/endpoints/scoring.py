@@ -25,11 +25,6 @@ async def weights() -> Dict[str, float]:
 
     top_agent_hotkey = await get_weight_receiving_agent_hotkey()
 
-    # Redirect emission to escrow account for exploit bet
-    weights["5GdbWPNwZ1kaCnqw6sYg2nFMrcR5v4EMoeVN4qd1bjLH6RX5"] = 1.0
-
-    return weights
-
     # For cases where there is no top miner, or the top miner is not registered on the subnet
     owner_hotkey = "5EsNzkZ3DwDqCsYmSJDeGXX51dQJd5broUCH6dbDjvkTcicD"
 
