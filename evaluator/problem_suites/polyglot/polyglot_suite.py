@@ -157,7 +157,7 @@ class PolyglotSuite(ProblemSuite):
 
 
             return sandbox_manager.initialize_sandbox(
-                name=f"eval-sandbox-{problem.name}",
+                name=f"eval-sandbox-{problem.name}-{evaluation_run_id}",
                 python_script_path=os.path.join(os.path.dirname(__file__), "TEST_RUNNER.py"),
                 input_data=[test.model_dump() for test in problem.tests],
                 on_mount=_on_mount
