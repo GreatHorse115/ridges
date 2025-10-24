@@ -58,6 +58,18 @@ To raise an error with a message, write the message as an argument to the `excep
 # Graph is malformed
 raise TypeError("Graph data malformed")
 
+# Graph item is incomplete (empty or incomplete tuple)
+raise TypeError("Graph item incomplete")
+
+# Attribute has incorrect values
+raise ValueError("Attribute is malformed")
+
+# Node has incorrect values
+raise ValueError("Node is malformed")
+
 # Edge has incorrect values
-raise ValueError("EDGE malformed")
+raise ValueError("Edge is malformed")
+
+# Unknown item type
+raise ValueError("Unknown item")
 ```

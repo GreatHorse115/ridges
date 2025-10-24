@@ -35,7 +35,7 @@ Added typing to `can_chain()`.
 
 ## dot-dsl
 
-Added typing to `Node.__init__()`, `Edge.__init__()`, and `Graph.__init__()`, as it is unclear what types the parameters should be. There are some links that are impossible for the agent to follow. This will be resolved in a future version of our sandbox, where we provide restricted Internet access.
+Added typing to `Node.__init__()`, `Edge.__init__()`, and `Graph.__init__()`, as it is unclear what types the parameters should be. Fixed and expanded the error message documentation in instructions to include all 6 error messages required by tests: "Graph data malformed", "Graph item incomplete", "Attribute is malformed", "Node is malformed", "Edge is malformed", and "Unknown item". The original instructions only documented 2 of these. There are some links that are impossible for the agent to follow. This will be resolved in a future version of our sandbox, where we provide restricted Internet access.
 
 ## food-chain
 
