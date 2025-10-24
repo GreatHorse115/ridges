@@ -51,11 +51,9 @@ CREATE TABLE IF NOT EXISTS agents (
     version_num INTEGER NOT NULL,
     status AgentStatus,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    ip_address TEXT NOT NULL,
+    ip_address TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_agents_miner_hotkey_version ON agents (miner_hotkey, agent_id);
-ALTER TABLE agents DROP COLUMN IF EXISTS innovation;
-ALTER TABLE agents DROP COLUMN IF EXISTS agent_summary;
 
 CREATE TABLE IF NOT EXISTS banned_hotkeys (
     miner_hotkey TEXT NOT NULL,
@@ -134,13 +132,25 @@ CREATE TABLE IF NOT EXISTS approved_agents (
     UNIQUE (agent_id, set_id)
 );
 
-DROP TABLE IF EXISTS treasury_wallets;
-DROP TABLE IF EXISTS treasury_transactions;
-DROP TABLE IF EXISTS platform_status_checks;
-DROP TABLE IF EXISTS top_agents;
+CREATE TABLE IF NOT EXISTS upload_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    upload_type TEXT NOT NULL,
+    hotkey TEXT,
+    agent_name TEXT,
+    filename TEXT,
+    file_size_bytes BIGINT,
+    ip_address TEXT,
+    success BOOLEAN NOT NULL,
+    error_type TEXT,
+    error_message TEXT,
+    ban_reason TEXT,
+    http_status_code INT,
+    agent_id UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- First view: evaluation_runs with solved status
-CREATE REPLACE VIEW evaluation_runs_hydrated AS
+CREATE OR REPLACE VIEW evaluation_runs_hydrated AS
 SELECT
     evaluation_runs.*,
     CASE
@@ -170,8 +180,6 @@ FROM evaluations
 GROUP BY evaluations.evaluation_id;
 
 DROP MATERIALIZED VIEW IF EXISTS agent_scores CASCADE;
-
--- Recreate the materialized view
 CREATE MATERIALIZED VIEW agent_scores AS
 WITH all_agents AS (
     -- Get all agent versions from non-banned hotkeys
@@ -181,8 +189,7 @@ WITH all_agents AS (
         name,
         version_num,
         created_at,
-        status,
-        agent_summary
+        status
     FROM agents
     WHERE miner_hotkey NOT IN (SELECT miner_hotkey FROM banned_hotkeys)
 ),
@@ -195,7 +202,6 @@ agent_evaluations AS (
         aa.version_num,
         aa.created_at,
         aa.status,
-        aa.agent_summary,
         e.set_id,
         e.score,
         e.validator_hotkey,
@@ -217,7 +223,6 @@ SELECT
     ae.version_num,
     ae.created_at,
     ae.status,
-    ae.agent_summary,
     ae.set_id,
     ae.approved,
     ae.approved_at,
@@ -226,7 +231,7 @@ SELECT
 FROM agent_evaluations ae
 WHERE ae.set_id IS NOT NULL
 GROUP BY ae.agent_id, ae.miner_hotkey, ae.name, ae.version_num,
-         ae.created_at, ae.status, ae.agent_summary, ae.set_id, ae.approved, ae.approved_at
+         ae.created_at, ae.status, ae.set_id, ae.approved, ae.approved_at
 -- At least 2 validators
 -- NOTE: THIS PARAMETER IS TIED TO NUM_EVALS_PER_AGENT in api/config.py
 HAVING COUNT(DISTINCT ae.validator_hotkey) >= 2;
@@ -234,9 +239,6 @@ HAVING COUNT(DISTINCT ae.validator_hotkey) >= 2;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_scores_agent_id ON agent_scores (agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_scores_final_score ON agent_scores (final_score);
 CREATE INDEX IF NOT EXISTS idx_agent_scores_created_at ON agent_scores (created_at);
-
-DROP FUNCTION IF EXISTS refresh_evaluation_runs_hydrated();
-DROP FUNCTION IF EXISTS refresh_evaluations_and_scores();
 
 CREATE OR REPLACE FUNCTION refresh_agent_scores_view()
 RETURNS TRIGGER AS $$
@@ -246,58 +248,30 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+drop trigger if exists tr_refresh_agent_scores_view on evaluations;
 create trigger tr_refresh_agent_scores_view
 after insert or update or delete or truncate
 on evaluations for each statement 
 execute procedure refresh_agent_scores_view();
 
+drop trigger if exists tr_refresh_agent_scores_view_approved_agents on approved_agents;
 create trigger tr_refresh_agent_scores_view_approved_agents
 after insert or update or delete or truncate
 on approved_agents for each statement 
 execute procedure refresh_agent_scores_view();
 
+drop trigger if exists tr_refresh_agent_scores_view_banned_hotkeys on banned_hotkeys;
 create trigger tr_refresh_agent_scores_view_banned_hotkeys
 after insert or update or delete or truncate
 on banned_hotkeys for each statement 
 execute procedure refresh_agent_scores_view();
 
 -- Don't bother with adding agents since they have no score
+drop trigger if exists tr_refresh_agent_scores_view_delete_agents on agents;
 create trigger tr_refresh_agent_scores_view_delete_agents
 after update or delete or truncate
 on agents for each statement 
 execute procedure refresh_agent_scores_view();
-
-DROP TRIGGER IF EXISTS tr_refresh_agent_scores ON evaluations;
-DROP TRIGGER IF EXISTS tr_refresh_agent_scores_agents ON agents;
-DROP TRIGGER IF EXISTS tr_refresh_agent_scores_approved ON approved_agents;
-DROP TRIGGER IF EXISTS tr_refresh_agent_scores_banned ON banned_hotkeys;
-DROP TRIGGER IF EXISTS tr_refresh_evaluation_runs_views ON evaluation_runs;
-DROP TRIGGER IF EXISTS tr_set_top_agent_on_completed_evaluation ON evaluations;
-DROP TRIGGER IF EXISTS tr_set_approved_top_agent_on_completed_evaluation ON evaluations;
-DROP TRIGGER IF EXISTS tr_set_approved_top_agent_on_approval ON approved_agents;
-DROP TRIGGER IF EXISTS tr_set_approved_top_agent_on_eval_insert ON evaluations;
-
-DROP FUNCTION IF EXISTS set_top_agent_on_completed_evaluation();
-DROP FUNCTION IF EXISTS set_approved_top_agent_if_changed();
-
-DROP TABLE IF EXISTS approved_top_agents_history;
-
-CREATE TABLE IF NOT EXISTS upload_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    upload_type TEXT NOT NULL,
-    hotkey TEXT,
-    agent_name TEXT,
-    filename TEXT,
-    file_size_bytes BIGINT,
-    ip_address TEXT,
-    success BOOLEAN NOT NULL,
-    error_type TEXT,
-    error_message TEXT,
-    ban_reason TEXT,
-    http_status_code INT,
-    agent_id UUID,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- Screener 1 queue view
 -- Returns agents in screening_1 status that haven't been successfully evaluated by a screener-1 validator yet
@@ -364,4 +338,4 @@ WHERE
 ORDER BY
     screener_2_scores.score DESC,
     agents.created_at ASC,
-    num_finished_evals DESC
+    num_finished_evals DESC;
